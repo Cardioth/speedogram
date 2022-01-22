@@ -22,7 +22,7 @@ var totalLives = 3;
 var lives = totalLives;
 var gridSize = 3;
 var level = 0;
-var gridSizeIntervals = [3,3,3,4,4,4,5,5,5,6,6,6,6];
+var gridSizeIntervals = [3,3,3,4,4,4,5,5,5,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,9,9,10,10];
 var cellSize = 22;
 var gridBoundaryMargin = 76;
 var overallGridSize = gridSize*cellSize;
@@ -276,8 +276,7 @@ function checkVictory(){
   if(totalGuesses == totalGridSize){
     score ++;
     level ++;
-    timeLimit +=200;
-    timer -=200
+    timeLimit +=100;
     updateGridSize()
   	initGrid();
     mouseState = "up";
