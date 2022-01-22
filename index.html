@@ -32,7 +32,9 @@ var mouseState = "up";
 var mouseButton;
 var timer;
 var timerState = "stopped";
-var timeLimit = 6000;
+var timeLimitInit = 6000;
+var timeLimit = timeLimitInit;
+var timeIncrement = 700;
 var score = 0;
 
 var grid = [];
@@ -157,13 +159,13 @@ function renderStopwatchHand(x,y,time){
 }
 function renderScore(){
   for(var i=0;i<score;i++){
-    renderStar(282+overallGridSize/2,160+(i*20));
+    renderStar(138-overallGridSize/2,60+(i%5*20));
   }
 }
 function renderStar(x,y){
   let p = new Path2D('M 0.55 -7.9 Q 0.5 -8.1 0.3 -8.25 0.15 -8.35 -0.1 -8.35 -0.3 -8.35 -0.5 -8.25 -0.65 -8.1 -0.75 -7.9 L -2.55 -2.7 -8.05 -2.55 Q -8.3 -2.55 -8.45 -2.45 -8.6 -2.3 -8.7 -2.1 -8.75 -1.9 -8.7 -1.65 -8.6 -1.45 -8.45 -1.35 L -4.1 2 -5.65 7.25 Q -5.75 7.45 -5.65 7.7 -5.6 7.9 -5.45 8.05 -5.25 8.15 -5 8.15 -4.8 8.15 -4.6 8.05 L -0.1 4.9 4.45 8.05 Q 4.6 8.15 4.8 8.15 5.05 8.15 5.25 8.05 5.4 7.9 5.45 7.7 5.55 7.45 5.45 7.25 L 3.9 2 8.25 -1.35 Q 8.4 -1.45 8.5 -1.65 8.55 -1.9 8.5 -2.1 8.4 -2.3 8.25 -2.45 8.1 -2.55 7.9 -2.55 L 2.35 -2.7 0.55 -7.9 Z');
   ctx.translate(x,y);
-  ctx.fillStyle = "#FBE898"
+  ctx.fillStyle = "#0088FF"
   ctx.fill(p);
   ctx.translate(-x,-y);
 }
@@ -276,7 +278,7 @@ function checkVictory(){
   if(totalGuesses == totalGridSize){
     score ++;
     level ++;
-    timeLimit +=100;
+    timeLimit += timeIncrement;
     updateGridSize()
   	initGrid();
     mouseState = "up";
@@ -354,6 +356,7 @@ function click(){
       clearSceneObjects();
       level = 0;
       timer = 0;
+      timeLimit = timeLimitInit;
       score = 0;
       updateGridSize()
       intervalID = setInterval(function(){timer++},10)
@@ -367,6 +370,7 @@ function click(){
       lives = totalLives;
       level = 0;
       timer = 0;
+      timeLimit = timeLimitInit;
       score = 0;
       updateGridSize()
       intervalID = setInterval(function(){timer++},10)
