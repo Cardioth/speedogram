@@ -18,7 +18,9 @@ var canvas = document.getElementById('speedogram');
 var canvasSize = canvas.width;
 var height = canvas.height;
 var lives = 3;
-var gridSize = 6;
+var gridSize = 3;
+var level = 0;
+var gridSizeIntervals = [3,3,3,4,4,4,5,5,5,6,6,6,6];
 var cellSize = 22;
 var gridBoundaryMargin = 76;
 var overallGridSize = gridSize*cellSize;
@@ -28,6 +30,8 @@ var mouseState = "up";
 var mouseButton;
 var timer;
 var timerState = "stopped";
+var timeLimit = 3000;
+var score = 0;
 
 var grid = [];
 var gridGuesses = [];
@@ -45,7 +49,7 @@ var mouseY;
 
 function init(){
   gameMode = "menu";
-  createObject(200,200,100,30,"PlayButton","Button","Start");
+  createObject(200,130,100,30,"PlayButton","Button","Start");
   enterFrame();
 }
 
@@ -62,12 +66,24 @@ function enterFrame(){
     renderStopwatch(285+overallGridSize/2,90);
     renderStopwatchHand(285+overallGridSize/2,90,timer);
     renderStopwatchTimer(278+overallGridSize/2,136,timer);
-    if(timer>3000){
+    renderScore();
+    if(timer>timeLimit){
       clearInterval(intervalID);
+      gameMode = "gameOver";
+      createObject(200,170,100,30,"RestartButton","Button","Restart");
     }
+  }
+  if(gameMode == "gameOver"){
+    renderGameOver();
   }
   renderSceneObjects();
   window.requestAnimationFrame(enterFrame);
+}
+
+function renderGameOver(){
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#0088FF";
+  ctx.fillText("Score: " + score,200-(ctx.measureText("Score: " + score).width/2),120);
 }
 
 function hitTest(object){
@@ -106,9 +122,9 @@ function renderButton(x,y,width,height,text){
   ctx.globalAlpha = 1;
   ctx.strokeStyle = "#0088FF";
   ctx.roundRect(-width/2,-height/2,width,height,3,false,true);
-  ctx.font = "24px Arial";
+  ctx.font = "18px Arial";
   ctx.fillStyle = "#0088FF";
-  ctx.fillText(text,-26,8);
+  ctx.fillText(text,-(ctx.measureText(text).width/2),6);
   ctx.translate(-x,-y);
 }
 
@@ -117,7 +133,7 @@ function createObject(xC,yC,widthC,heightC,nameC,typeC,textC){
 }
 
 function renderStopwatchTimer(x,y,time){
-  var timeSeconds = 30-Math.floor(time/100);
+  var timeSeconds = timeLimit/100-Math.floor(time/100);
   ctx.save();
   ctx.translate(x,y);
   ctx.font = "12px Arial";
@@ -129,12 +145,23 @@ function renderStopwatchTimer(x,y,time){
 function renderStopwatchHand(x,y,time){
   ctx.save();
   ctx.translate(x,y);
-  ctx.rotate((Math.PI / 180) * time*360/3000);
+  ctx.rotate((Math.PI / 180) * time*360/timeLimit);
   ctx.fillStyle = "#0088FF"
   ctx.fillRect(-2,-19,4,19);
   ctx.restore();
 }
-
+function renderScore(){
+  for(var i=0;i<score;i++){
+    renderStar(282+overallGridSize/2,160+(i*20));
+  }
+}
+function renderStar(x,y){
+  let p = new Path2D('M 0.55 -7.9 Q 0.5 -8.1 0.3 -8.25 0.15 -8.35 -0.1 -8.35 -0.3 -8.35 -0.5 -8.25 -0.65 -8.1 -0.75 -7.9 L -2.55 -2.7 -8.05 -2.55 Q -8.3 -2.55 -8.45 -2.45 -8.6 -2.3 -8.7 -2.1 -8.75 -1.9 -8.7 -1.65 -8.6 -1.45 -8.45 -1.35 L -4.1 2 -5.65 7.25 Q -5.75 7.45 -5.65 7.7 -5.6 7.9 -5.45 8.05 -5.25 8.15 -5 8.15 -4.8 8.15 -4.6 8.05 L -0.1 4.9 4.45 8.05 Q 4.6 8.15 4.8 8.15 5.05 8.15 5.25 8.05 5.4 7.9 5.45 7.7 5.55 7.45 5.45 7.25 L 3.9 2 8.25 -1.35 Q 8.4 -1.45 8.5 -1.65 8.55 -1.9 8.5 -2.1 8.4 -2.3 8.25 -2.45 8.1 -2.55 7.9 -2.55 L 2.35 -2.7 0.55 -7.9 Z');
+  ctx.translate(x,y);
+  ctx.fillStyle = "#FBE898"
+  ctx.fill(p);
+  ctx.translate(-x,-y);
+}
 function renderStopwatch(x,y){
   let p = new Path2D('M 8.5 -38.9 Q 7.95 -39.45 7.2 -39.45 L -7.95 -39.45 Q -8.75 -39.45 -9.3 -38.9 -9.85 -38.35 -9.85 -37.6 L -9.85 -34.9 Q -9.85 -34.15 -9.3 -33.55 -8.75 -33.05 -7.95 -33.05 L 7.2 -33.05 Q 7.95 -33.05 8.5 -33.55 9.05 -34.15 9.05 -34.9 L 9.05 -37.6 Q 9.05 -38.35 8.5 -38.9 M 5.3 -36.8 L 5.3 -35.7 -6.1 -35.7 -6.1 -36.8 5.3 -36.8 M 24.45 -27.6 Q 23.9 -28.15 23.15 -28.15 22.35 -28.15 21.8 -27.55 21.3 -27 21.3 -26.25 21.3 -25.7 21.6 -25.25 L 17.4 -21.1 Q 13 -24.8 7.7 -26.35 L 7.7 -30.1 Q 7.7 -30.85 7.2 -31.4 6.6 -31.95 5.85 -31.95 L -6.9 -31.95 Q -7.65 -31.95 -8.2 -31.4 -8.75 -30.85 -8.75 -30.1 L -8.75 -26.25 Q -13.7 -24.7 -17.85 -21.25 L -21.65 -25.05 Q -21.25 -25.6 -21.25 -26.25 -21.25 -27.05 -21.8 -27.55 -22.35 -28.15 -23.15 -28.15 -23.9 -28.15 -24.45 -27.55 L -25.65 -26.4 Q -25.7 -26.35 -25.7 -26.3 L -26.8 -25.3 Q -27.4 -24.8 -27.4 -24.05 -27.45 -23.25 -26.9 -22.7 -26.4 -22.1 -25.6 -22.05 -24.9 -22.05 -24.4 -22.45 L -20.6 -18.7 Q -28.1 -10.75 -28.1 0.3 -28.1 11.8 -19.95 19.9 -11.85 28.05 -0.35 28.05 11.15 28.05 19.3 19.9 27.4 11.8 27.4 0.3 27.4 -10.6 20.15 -18.5 L 24.25 -22.6 Q 24.8 -22.05 25.55 -22.05 26.35 -22.05 26.9 -22.65 27.4 -23.2 27.4 -23.95 27.4 -24.75 26.85 -25.3 L 24.45 -27.6 M 3.95 -28.2 L 3.95 -24.9 Q 3.95 -24.25 4.35 -23.7 4.75 -23.2 5.4 -23.05 11.75 -21.6 16.65 -16.7 23.65 -9.65 23.65 0.3 23.65 10.25 16.65 17.25 9.6 24.3 -0.35 24.3 -10.25 24.3 -17.3 17.25 -24.3 10.25 -24.3 0.3 -24.3 -9.65 -17.3 -16.7 -17 -17 -16.7 -17.25 L -16.65 -17.3 Q -16.65 -17.35 -16.6 -17.35 L -16.6 -17.4 Q -16.5 -17.45 -16.35 -17.55 -11.95 -21.6 -6.45 -23 -5.8 -23.15 -5.4 -23.65 -5 -24.15 -5 -24.8 L -5 -28.2 3.95 -28.2 M -1.65 21.1 Q -1.65 21.8 -1.15 22.3 -0.7 22.75 0 22.75 0.7 22.75 1.15 22.3 1.65 21.8 1.65 21.1 1.65 20.45 1.15 19.9 0.7 19.45 0 19.45 -0.7 19.45 -1.15 19.9 -1.65 20.45 -1.65 21.1 M -21.8 -1.2 Q -22.25 -0.7 -22.25 -0.05 -22.25 0.65 -21.8 1.15 -21.3 1.65 -20.6 1.65 -19.95 1.65 -19.4 1.15 -18.95 0.65 -18.95 -0.05 -18.95 -0.7 -19.4 -1.2 -19.95 -1.7 -20.6 -1.7 -21.3 -1.7 -21.8 -1.2 M 19.1 -1.2 Q 18.65 -0.7 18.65 -0.05 18.65 0.65 19.1 1.15 19.6 1.65 20.3 1.65 20.95 1.65 21.45 1.15 21.95 0.65 21.95 -0.05 21.95 -0.7 21.45 -1.2 20.95 -1.7 20.3 -1.7 19.6 -1.7 19.1 -1.2 M 1.65 -1.65 Q 0.95 -2.35 0 -2.35 -0.95 -2.35 -1.65 -1.65 -2.35 -1 -2.35 -0.05 -2.35 0.95 -1.65 1.65 -0.95 2.3 0 2.3 0.95 2.3 1.65 1.65 2.35 0.95 2.35 -0.05 2.35 -1 1.65 -1.65 M 0 -18.15 Q 0.7 -18.15 1.15 -18.6 1.65 -19.1 1.65 -19.8 1.65 -20.45 1.15 -20.95 0.7 -21.45 0 -21.45 -0.7 -21.45 -1.15 -20.95 -1.65 -20.45 -1.65 -19.8 -1.65 -19.1 -1.15 -18.6 -0.7 -18.15 0 -18.15 Z');
   ctx.translate(x,y);
@@ -220,10 +247,8 @@ function mouseMove(){
 }
 function gameOverScreen(){
     if(lives == 0){
-     lives = 3;
-      initGrid();
-      mouseState = "up";
-      mouseButton = 0;
+      lives = 3;
+      score --;
     }
 }
 
@@ -238,6 +263,12 @@ function checkVictory(){
     }
   }
   if(totalGuesses == totalGridSize){
+    score ++;
+    level ++;
+    gridSize = [gridSizeIntervals[level]];
+    overallGridSize = gridSize*cellSize;
+    gridOffSetX = (canvasSize-overallGridSize/2)-170;
+    gridOffSetY = 120;
   	initGrid();
     mouseState = "up";
     mouseButton = 0;
@@ -307,6 +338,17 @@ function click(){
     if(hitTest("PlayButton")){
       clearSceneObjects();
       timer = 0;
+      score = 0;
+      intervalID = setInterval(function(){timer++},10)
+      gameMode = "play";
+      initGrid();
+    }
+  }
+  if(gameMode == "gameOver"){
+    if(hitTest("RestartButton")){
+      clearSceneObjects();
+      timer = 0;
+      score = 0;
       intervalID = setInterval(function(){timer++},10)
       gameMode = "play";
       initGrid();
@@ -325,11 +367,11 @@ CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, ra
             cornerRadius[side] = radius[side];
         }
     }
-	if (typeof radius === "number"){
-		for (var side in cornerRadius) {
-            cornerRadius[side] = radius;
-        }
-	}
+  	if (typeof radius === "number"){
+  		for (var side in cornerRadius) {
+              cornerRadius[side] = radius;
+          }
+  	}
 
     this.beginPath();
     this.moveTo(x + cornerRadius.upperLeft, y);
