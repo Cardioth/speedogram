@@ -31,7 +31,7 @@ var mouseState = "up";
 var mouseButton;
 var timer;
 var timerState = "stopped";
-var timeLimit = 4000;
+var timeLimit = 6000;
 var score = 0;
 
 var grid = [];
@@ -267,6 +267,8 @@ function checkVictory(){
   if(totalGuesses == totalGridSize){
     score ++;
     level ++;
+    timeLimit +=200;
+    timer -=200
     updateGridSize()
   	initGrid();
     mouseState = "up";
