@@ -61,7 +61,7 @@ function enterFrame(){
     renderHealth();
     renderStopwatch(285+overallGridSize/2,90);
     renderStopwatchHand(285+overallGridSize/2,90,timer);
-    renderStopwatchTimer(280+overallGridSize/2,140,timer);
+    renderStopwatchTimer(278+overallGridSize/2,136,timer);
     if(timer>3000){
       clearInterval(intervalID);
     }
@@ -117,7 +117,7 @@ function createObject(xC,yC,widthC,heightC,nameC,typeC,textC){
 }
 
 function renderStopwatchTimer(x,y,time){
-  var timeSeconds = Math.floor(time/100);
+  var timeSeconds = 30-Math.floor(time/100);
   ctx.save();
   ctx.translate(x,y);
   ctx.font = "12px Arial";
@@ -421,7 +421,7 @@ function initGrid(){
   }
 }
 
-function renderCells()
+function renderCells(){
   for(var i = 0; i<this.gridSize;i++){
     for(var j = 0; j<this.gridSize;j++){
       ctx.lineWidth = 1;
