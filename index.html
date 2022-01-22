@@ -14,6 +14,7 @@
 </body>
 
 <script>
+var versionNumber = "V0.1"
 var canvas = document.getElementById('speedogram');
 var canvasSize = canvas.width;
 var height = canvas.height;
@@ -39,6 +40,9 @@ var gridGuesses = [];
 
 var can = document.getElementById("speedogram");
 
+can.addEventListener("touchstart", mouseDown, false);
+can.addEventListener("touchend", mouseUp, false);
+
 can.addEventListener("mousemove", mouseMove, false);
 can.addEventListener("mouseup", mouseUp, false);
 can.addEventListener("mousedown", mouseDown, false);
@@ -57,6 +61,7 @@ function init(){
 function enterFrame(){
   ctx.clearRect(0,0,canvasSize,canvasSize);
   renderTitle();
+  renderVersionNumber();
   if(gameMode == "play"){
     actionCell();
     renderBackdrop();
@@ -80,7 +85,6 @@ function enterFrame(){
   renderSceneObjects();
   window.requestAnimationFrame(enterFrame);
 }
-
 function renderGameOver(){
   ctx.font = "16px Arial";
   ctx.fillStyle = "#0088FF";
@@ -224,6 +228,11 @@ function renderTitle(){
   ctx.font = "24px Arial";
   ctx.fillStyle = "#0088FF";
   ctx.fillText("Speed-o-Gram",canvasSize/2-80,30);
+}
+function renderVersionNumber(){
+  ctx.font = "10px Arial";
+  ctx.fillStyle = "#0088FF";
+  ctx.fillText(versionNumber,canvasSize-30,10);
 }
 function renderClueText(){
   for (var counts in Xcounters){
