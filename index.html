@@ -1,29 +1,33 @@
 <!DOCTYPE html>
 <html>
-<title>Speed-o-gram</title>
+<title>Speed-o-Gram</title>
 <style>
-#speedogram {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 20px;
-}
+  #speedogram {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 20px;
+  }
 </style>
 <body>
-<canvas id="speedogram" width="400" height="400">Hello</canvas>
+  <canvas id="speedogram" width="400" height="400" >Hello</canvas>
 </body>
 
 <script>
+var canvas = document.getElementById('speedogram');
+var canvasSize = canvas.width;
+var height = canvas.height;
 var lives = 3;
-var gridSize = 5;
-var cellSize = 20;
-var gridBoundaryMargin = 75;
+var gridSize = 6;
+var cellSize = 22;
+var gridBoundaryMargin = 76;
 var overallGridSize = gridSize*cellSize;
-var gridOffSetX = (400-overallGridSize)/2;
+var gridOffSetX = (canvasSize-overallGridSize/2)-170;
 var gridOffSetY = 120;
 var mouseState = "up";
 var mouseButton;
-
+var timer;
+var timerState = "stopped";
 
 var grid = [];
 var gridGuesses = [];
@@ -33,10 +37,111 @@ var can = document.getElementById("speedogram");
 can.addEventListener("mousemove", mouseMove, false);
 can.addEventListener("mouseup", mouseUp, false);
 can.addEventListener("mousedown", mouseDown, false);
+can.addEventListener("click", click, false);
 
 var ctx = can.getContext("2d");
 var mouseX;
 var mouseY;
+
+function init(){
+  gameMode = "menu";
+  createObject(200,200,100,30,"PlayButton","Button","Start");
+  enterFrame();
+}
+
+function enterFrame(){
+  ctx.clearRect(0,0,canvasSize,canvasSize);
+  renderTitle();
+  if(gameMode == "play"){
+    actionCell();
+    renderBackdrop();
+    renderCells();
+    renderClueText();
+    renderMouseOver();
+    renderHealth();
+    renderStopwatch(285+overallGridSize/2,90);
+    renderStopwatchHand(285+overallGridSize/2,90,timer);
+    renderStopwatchTimer(280+overallGridSize/2,140,timer);
+    if(timer>3000){
+      clearInterval(intervalID);
+    }
+  }
+  renderSceneObjects();
+  window.requestAnimationFrame(enterFrame);
+}
+
+function hitTest(object){
+  //Search scene objects for name
+  for(var objects in sceneObjects){
+    if(sceneObjects[objects].name == object){
+      var obj = sceneObjects[objects];
+    }
+  }
+  if(mouseX > obj.x-obj.width/2 && mouseX < obj.x+obj.width/2 && mouseY > obj.y-obj.height/2 && mouseY < obj.y+obj.height/2){
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function renderSceneObjects(){
+  for(var object in sceneObjects){
+    var obj = sceneObjects[object];
+    if(obj.type == "Button"){
+        renderButton(obj.x,obj.y,obj.width,obj.height,obj.text);
+    }
+  }
+}
+function clearSceneObjects(){
+  for(var object in sceneObjects){
+    sceneObjects.pop(object);
+  }
+}
+
+function renderButton(x,y,width,height,text){
+  ctx.translate(x,y);
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = "#0088FF";
+  ctx.roundRect(-width/2,-height/2,width,height,3,true,false);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#0088FF";
+  ctx.roundRect(-width/2,-height/2,width,height,3,false,true);
+  ctx.font = "24px Arial";
+  ctx.fillStyle = "#0088FF";
+  ctx.fillText(text,-26,8);
+  ctx.translate(-x,-y);
+}
+
+function createObject(xC,yC,widthC,heightC,nameC,typeC,textC){
+  sceneObjects.push({x:xC,y:yC,width:widthC,height:heightC,name:nameC,type:typeC,text:textC});
+}
+
+function renderStopwatchTimer(x,y,time){
+  var timeSeconds = Math.floor(time/100);
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.font = "12px Arial";
+  ctx.fillStyle = "#0088FF";
+  ctx.fillText(timeSeconds,0,0);
+  ctx.restore();
+}
+
+function renderStopwatchHand(x,y,time){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate((Math.PI / 180) * time*360/3000);
+  ctx.fillStyle = "#0088FF"
+  ctx.fillRect(-2,-19,4,19);
+  ctx.restore();
+}
+
+function renderStopwatch(x,y){
+  let p = new Path2D('M 8.5 -38.9 Q 7.95 -39.45 7.2 -39.45 L -7.95 -39.45 Q -8.75 -39.45 -9.3 -38.9 -9.85 -38.35 -9.85 -37.6 L -9.85 -34.9 Q -9.85 -34.15 -9.3 -33.55 -8.75 -33.05 -7.95 -33.05 L 7.2 -33.05 Q 7.95 -33.05 8.5 -33.55 9.05 -34.15 9.05 -34.9 L 9.05 -37.6 Q 9.05 -38.35 8.5 -38.9 M 5.3 -36.8 L 5.3 -35.7 -6.1 -35.7 -6.1 -36.8 5.3 -36.8 M 24.45 -27.6 Q 23.9 -28.15 23.15 -28.15 22.35 -28.15 21.8 -27.55 21.3 -27 21.3 -26.25 21.3 -25.7 21.6 -25.25 L 17.4 -21.1 Q 13 -24.8 7.7 -26.35 L 7.7 -30.1 Q 7.7 -30.85 7.2 -31.4 6.6 -31.95 5.85 -31.95 L -6.9 -31.95 Q -7.65 -31.95 -8.2 -31.4 -8.75 -30.85 -8.75 -30.1 L -8.75 -26.25 Q -13.7 -24.7 -17.85 -21.25 L -21.65 -25.05 Q -21.25 -25.6 -21.25 -26.25 -21.25 -27.05 -21.8 -27.55 -22.35 -28.15 -23.15 -28.15 -23.9 -28.15 -24.45 -27.55 L -25.65 -26.4 Q -25.7 -26.35 -25.7 -26.3 L -26.8 -25.3 Q -27.4 -24.8 -27.4 -24.05 -27.45 -23.25 -26.9 -22.7 -26.4 -22.1 -25.6 -22.05 -24.9 -22.05 -24.4 -22.45 L -20.6 -18.7 Q -28.1 -10.75 -28.1 0.3 -28.1 11.8 -19.95 19.9 -11.85 28.05 -0.35 28.05 11.15 28.05 19.3 19.9 27.4 11.8 27.4 0.3 27.4 -10.6 20.15 -18.5 L 24.25 -22.6 Q 24.8 -22.05 25.55 -22.05 26.35 -22.05 26.9 -22.65 27.4 -23.2 27.4 -23.95 27.4 -24.75 26.85 -25.3 L 24.45 -27.6 M 3.95 -28.2 L 3.95 -24.9 Q 3.95 -24.25 4.35 -23.7 4.75 -23.2 5.4 -23.05 11.75 -21.6 16.65 -16.7 23.65 -9.65 23.65 0.3 23.65 10.25 16.65 17.25 9.6 24.3 -0.35 24.3 -10.25 24.3 -17.3 17.25 -24.3 10.25 -24.3 0.3 -24.3 -9.65 -17.3 -16.7 -17 -17 -16.7 -17.25 L -16.65 -17.3 Q -16.65 -17.35 -16.6 -17.35 L -16.6 -17.4 Q -16.5 -17.45 -16.35 -17.55 -11.95 -21.6 -6.45 -23 -5.8 -23.15 -5.4 -23.65 -5 -24.15 -5 -24.8 L -5 -28.2 3.95 -28.2 M -1.65 21.1 Q -1.65 21.8 -1.15 22.3 -0.7 22.75 0 22.75 0.7 22.75 1.15 22.3 1.65 21.8 1.65 21.1 1.65 20.45 1.15 19.9 0.7 19.45 0 19.45 -0.7 19.45 -1.15 19.9 -1.65 20.45 -1.65 21.1 M -21.8 -1.2 Q -22.25 -0.7 -22.25 -0.05 -22.25 0.65 -21.8 1.15 -21.3 1.65 -20.6 1.65 -19.95 1.65 -19.4 1.15 -18.95 0.65 -18.95 -0.05 -18.95 -0.7 -19.4 -1.2 -19.95 -1.7 -20.6 -1.7 -21.3 -1.7 -21.8 -1.2 M 19.1 -1.2 Q 18.65 -0.7 18.65 -0.05 18.65 0.65 19.1 1.15 19.6 1.65 20.3 1.65 20.95 1.65 21.45 1.15 21.95 0.65 21.95 -0.05 21.95 -0.7 21.45 -1.2 20.95 -1.7 20.3 -1.7 19.6 -1.7 19.1 -1.2 M 1.65 -1.65 Q 0.95 -2.35 0 -2.35 -0.95 -2.35 -1.65 -1.65 -2.35 -1 -2.35 -0.05 -2.35 0.95 -1.65 1.65 -0.95 2.3 0 2.3 0.95 2.3 1.65 1.65 2.35 0.95 2.35 -0.05 2.35 -1 1.65 -1.65 M 0 -18.15 Q 0.7 -18.15 1.15 -18.6 1.65 -19.1 1.65 -19.8 1.65 -20.45 1.15 -20.95 0.7 -21.45 0 -21.45 -0.7 -21.45 -1.15 -20.95 -1.65 -20.45 -1.65 -19.8 -1.65 -19.1 -1.15 -18.6 -0.7 -18.15 0 -18.15 Z');
+  ctx.translate(x,y);
+  ctx.fillStyle = "#0088FF"
+  ctx.fill(p);
+  ctx.translate(-x,-y);
+}
 
 function renderCross(x,y){
   let p = new Path2D('M 16.4 10.5 L 14.5 8.65 12.6 10.55 10.7 8.65 8.8 10.5 10.7 12.45 8.8 14.35 10.7 16.25 12.6 14.3 14.5 16.25 16.4 14.35 14.5 12.45 16.4 10.5 Z');
@@ -46,18 +151,18 @@ function renderCross(x,y){
   ctx.translate(-x,-y);
 }
 
+function renderHealth(){
+  for(var livesCount = 0;livesCount<lives;livesCount++){
+    renderHeart((livesCount*25)+200-(lives*12.5),gridOffSetY+overallGridSize+25);
+  }
+}
+
 function renderHeart(x,y){
   let p = new Path2D('M 24.1 7.05 Q 24.1 4.65 22.4 2.95 21.4 1.95 20.1 1.55 19.25 1.25 18.3 1.25 15.9 1.25 14.2 2.95 12.55 4.6 12.5 7 12.45 4.6 10.8 2.95 9.15 1.3 6.85 1.25 6.8 1.25 6.7 1.25 4.3 1.25 2.6 2.95 0.9 4.65 0.9 7.05 0.9 9 2.15 10.65 L 12.5 23.8 22.3 11.75 Q 24.1 9.45 24.1 7.05 Z');
   ctx.translate(x,y);
   ctx.fillStyle = "#FF5555"
   ctx.fill(p);
   ctx.translate(-x,-y);
-}
-
-function renderHealth(){
-  for(var livesCount = 0;livesCount<lives;livesCount++){
-    renderHeart((livesCount*25)+175-(lives*12.5),gridOffSetY+overallGridSize+25);
-  }
 }
 
 can.oncontextmenu = function (e) {
@@ -90,7 +195,7 @@ function renderBackdrop(){
 function renderTitle(){
   ctx.font = "24px Arial";
   ctx.fillStyle = "#0088FF";
-  ctx.fillText("Speed-o-Gram",93,25);
+  ctx.fillText("Speed-o-Gram",canvasSize/2-80,30);
 }
 function renderClueText(){
   for (var counts in Xcounters){
@@ -106,6 +211,36 @@ function renderClueText(){
       ctx.fillStyle = "#0088FF";
       ctx.fillText(Ycounters[counts][Ycounters[counts].length-seg-1], gridOffSetX-(seg*15)-14, gridOffSetY+6+(cellSize/4)+(counts*cellSize));
     }
+  }
+}
+sceneObjects = [];
+function mouseMove(){
+    mouseX = event.clientX - can.offsetLeft;
+    mouseY = event.clientY - can.offsetTop;
+}
+function gameOverScreen(){
+    if(lives == 0){
+     lives = 3;
+      initGrid();
+      mouseState = "up";
+      mouseButton = 0;
+    }
+}
+
+function checkVictory(){
+  var totalGridSize = gridSize*gridSize;
+  var totalGuesses = 0;
+  for(var i = 0; i<gridSize;i++){
+    for(var j = 0; j<gridSize;j++){
+      if(gridGuesses[i][j] == 1){
+        totalGuesses ++;
+      }
+    }
+  }
+  if(totalGuesses == totalGridSize){
+  	initGrid();
+    mouseState = "up";
+    mouseButton = 0;
   }
 }
 function actionCell(){
@@ -155,52 +290,6 @@ function actionCell(){
 		}
 	}
 }
-
-function draw(){
-  actionCell();
-  ctx.clearRect(0,0,400,400);
-  renderBackdrop();
-  renderCells();
-  renderTitle();
-  renderClueText();
-  renderMouseOver();
-  renderHealth();
-  window.requestAnimationFrame(draw);
-
-}
-
-function mouseMove(){
-    mouseX = event.clientX - can.offsetLeft;
-    mouseY = event.clientY - can.offsetTop;
-}
-function gameOverScreen(){
-    if(lives == 0){
-     lives = 3;
-	    alert("You lose bucko!");
-      init();
-      mouseState = "up";
-      mouseButton = 0;
-    }
-}
-
-function checkVictory(){
-  var totalGridSize = gridSize*gridSize;
-  var totalGuesses = 0;
-    for(var i = 0; i<gridSize;i++){
-      for(var j = 0; j<gridSize;j++){
-        if(gridGuesses[i][j] == 1){
-          totalGuesses ++;
-        }
-      }
-    }
-  if(totalGuesses == totalGridSize){
-    alert("Victory");
-  	init();
-    mouseState = "up";
-    mouseButton = 0;
-  }
-}
-
 function mouseDown(){
 	mouseState = "down";
 	mouseButton = event.button;
@@ -208,7 +297,21 @@ function mouseDown(){
 function mouseUp(){
 	mouseState = "up";
 	mouseButton = event.button;
-	checkVictory();
+  if(gameMode == "play"){
+    checkVictory();
+  }
+}
+var intervalID;
+function click(){
+  if(gameMode == "menu"){
+    if(hitTest("PlayButton")){
+      clearSceneObjects();
+      timer = 0;
+      intervalID = setInterval(function(){timer++},10)
+      gameMode = "play";
+      initGrid();
+    }
+  }
 }
 
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius, fill, stroke) {
@@ -251,7 +354,7 @@ var Ycounters = [];
 var columnsTotal = [];
 var rowsTotal = [];
 
-function init(){
+function initGrid(){
 	//reset main values
 	grid = [];
 	gridGuesses = [];
@@ -259,7 +362,6 @@ function init(){
 	Ycounters = [];
 	columnsTotal = [];
 	rowsTotal = [];
-
 
   for(var i = 0; i<this.gridSize;i++){
     var gridX = [];
@@ -319,7 +421,7 @@ function init(){
   }
 }
 
-function renderCells(){
+function renderCells()
   for(var i = 0; i<this.gridSize;i++){
     for(var j = 0; j<this.gridSize;j++){
       ctx.lineWidth = 1;
@@ -338,7 +440,6 @@ function renderCells(){
 }
 
 init();
-draw();
 
 </script>
 
