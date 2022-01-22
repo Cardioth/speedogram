@@ -17,7 +17,8 @@
 var canvas = document.getElementById('speedogram');
 var canvasSize = canvas.width;
 var height = canvas.height;
-var lives = 3;
+var totalLives = 3;
+var lives = totalLives;
 var gridSize = 3;
 var level = 0;
 var gridSizeIntervals = [3,3,3,4,4,4,5,5,5,6,6,6,6];
@@ -247,8 +248,9 @@ function mouseMove(){
 }
 function gameOverScreen(){
     if(lives == 0){
-      lives = 3;
-      score --;
+      clearInterval(intervalID);
+      gameMode = "gameOver";
+      createObject(200,170,100,30,"RestartButton","Button","Restart");
     }
 }
 
@@ -265,14 +267,17 @@ function checkVictory(){
   if(totalGuesses == totalGridSize){
     score ++;
     level ++;
-    gridSize = [gridSizeIntervals[level]];
-    overallGridSize = gridSize*cellSize;
-    gridOffSetX = (canvasSize-overallGridSize/2)-170;
-    gridOffSetY = 120;
+    updateGridSize()
   	initGrid();
     mouseState = "up";
     mouseButton = 0;
   }
+}
+function updateGridSize(){
+  gridSize = [gridSizeIntervals[level]];
+  overallGridSize = gridSize*cellSize;
+  gridOffSetX = (canvasSize-overallGridSize/2)-170;
+  gridOffSetY = 120;
 }
 function actionCell(){
 	if(mouseState == "down"){
@@ -337,8 +342,10 @@ function click(){
   if(gameMode == "menu"){
     if(hitTest("PlayButton")){
       clearSceneObjects();
+      level = 0;
       timer = 0;
       score = 0;
+      updateGridSize()
       intervalID = setInterval(function(){timer++},10)
       gameMode = "play";
       initGrid();
@@ -347,8 +354,11 @@ function click(){
   if(gameMode == "gameOver"){
     if(hitTest("RestartButton")){
       clearSceneObjects();
+      lives = totalLives;
+      level = 0;
       timer = 0;
       score = 0;
+      updateGridSize()
       intervalID = setInterval(function(){timer++},10)
       gameMode = "play";
       initGrid();
