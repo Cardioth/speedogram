@@ -1,37 +1,35 @@
 # speedogram
 
-Speed-o-Gram runs on a Node.js + Socket.IO server so players can be matched live and see each other’s board in real time (side-by-side multiplayer style).
+Speed-o-Gram now runs on a Node.js server with Socket.IO so multiple players in the same Replit can play live side by side and see each other's game progress.
 
-## Replit setup
+## Replit setup (important)
 
 Use a **Node.js Repl** and keep these files in the project root:
 - `server.js`
 - `package.json`
 - `.replit`
-- `index.html` (or `public/index.html`)
+- `index.html` (or put it in `/public/index.html`)
 
-This repo is configured to run:
+This repo is configured so Replit runs:
 
 ```bash
 npm install && npm start
 ```
 
-The server binds to `0.0.0.0:$PORT` for Replit preview compatibility.
+The server binds to `0.0.0.0:$PORT` (Replit-friendly) and serves:
+- `/` -> `index.html`
+- `/health` -> health JSON
 
-## New multiplayer flow
-
-1. Enter your name and click **Save**.
-2. Click **Start** in the game canvas.
-3. You are matched with the next available player in queue.
-4. Once matched, your game starts and the right-side board shows a live view of your opponent’s current board, score, level, lives, and game mode.
-
-## Endpoints
-
-- `/` → game page
-- `/health` → server health and queue/match counts
+If Replit says **"App is running but there is no page to preview"**, it usually means no HTTP server was detected on `$PORT`. The updated `server.js` now explicitly binds host + port and logs where static files are served from.
 
 ## Run locally
 
 1. `npm install`
 2. `npm start`
-3. Open `http://localhost:3000` in two tabs/windows to test matchmaking.
+3. Open `http://localhost:3000`
+
+## Multiplayer behavior
+
+- Each connected player appears in the **Live Players** panel.
+- The panel updates in real time with each player's score, level, lives, and game state.
+- Gameplay itself remains the same classic Speed-o-Gram loop.

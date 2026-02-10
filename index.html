@@ -51,26 +51,24 @@
     font-size: 13px;
     line-height: 1.4;
   }
+  #multiplayerPanel {
+    width: 400px;
+    margin: 12px auto 0;
+    font-family: Arial, sans-serif;
+    color: #0088FF;
+  }
+  #multiplayerPanel h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+  }
+  #multiplayerPlayers {
+    font-size: 13px;
+    line-height: 1.4;
+  }
 </style>
 <body>
-  <div id="arena">
-    <div class="boardWrap">
-      <h3>Your Board</h3>
-      <canvas id="speedogram" width="400" height="400" >Hello</canvas>
-    </div>
-    <div class="boardWrap">
-      <h3>Opponent Live Board</h3>
-      <canvas id="opponentCanvas" width="400" height="400"></canvas>
-    </div>
-  </div>
+  <canvas id="speedogram" width="400" height="400" >Hello</canvas>
   <div id="multiplayerPanel">
-    <div id="controls">
-      <label for="playerName">Name:</label>
-      <input id="playerName" maxlength="24" />
-      <button id="saveNameButton" type="button">Save</button>
-      <div id="nameStatus"></div>
-    </div>
-    <div id="matchStatus">Matchmaking idle.</div>
     <h3>Live Players</h3>
     <div id="multiplayerPlayers">Waiting for players…</div>
   </div>
@@ -104,9 +102,6 @@ var score = 0;
 var socket = typeof io !== "undefined" ? io() : null;
 var myPlayerName = "Player" + Math.floor(Math.random()*1000);
 var latestRoster = [];
-var opponentState = null;
-var activeOpponentId = null;
-var isSearchingMatch = false;
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -125,70 +120,6 @@ function updateMultiplayerPanel(players){
     .join("<br>");
 }
 
-function updateMatchStatus(message){
-  var status = document.getElementById("matchStatus");
-  if(status){
-    status.textContent = message;
-  }
-}
-
-function renderOpponentPreview(){
-  var oppCanvas = document.getElementById("opponentCanvas");
-  if(!oppCanvas){
-    return;
-  }
-  var oppCtx = oppCanvas.getContext("2d");
-  oppCtx.clearRect(0,0,oppCanvas.width,oppCanvas.height);
-  oppCtx.fillStyle = "#f4f9ff";
-  oppCtx.fillRect(0,0,oppCanvas.width,oppCanvas.height);
-
-  if(!opponentState || !opponentState.boardState){
-    oppCtx.fillStyle = "#0088FF";
-    oppCtx.font = "16px Arial";
-    oppCtx.fillText("Waiting for opponent board...",60,200);
-    return;
-  }
-
-  var board = opponentState.boardState.grid || [];
-  var guesses = opponentState.boardState.gridGuesses || [];
-  var size = opponentState.gridSize || board.length || 3;
-  var previewCell = Math.max(16, Math.floor(250/size));
-  var gridPixels = previewCell * size;
-  var startX = Math.floor((oppCanvas.width - gridPixels)/2);
-  var startY = 90;
-
-  oppCtx.fillStyle = "#0088FF";
-  oppCtx.font = "14px Arial";
-  oppCtx.fillText((opponentState.name || "Opponent") + " | Score " + (opponentState.score || 0) + " | Lvl " + (opponentState.level || 0),20,30);
-  oppCtx.fillText("Lives: " + (opponentState.lives || 0) + " | " + (opponentState.gameMode || "menu"),20,52);
-
-  for(var i=0;i<size;i++){
-    for(var j=0;j<size;j++){
-      var x = startX + (i*previewCell);
-      var y = startY + (j*previewCell);
-      oppCtx.fillStyle = "#FFFFFF";
-      oppCtx.strokeStyle = "#0088FF";
-      oppCtx.lineWidth = 1;
-      oppCtx.fillRect(x,y,previewCell,previewCell);
-      oppCtx.strokeRect(x,y,previewCell,previewCell);
-
-      if(guesses[i] && guesses[i][j] === 1 && board[i] && board[i][j] === 1){
-        oppCtx.fillStyle = "#0088FF";
-        oppCtx.fillRect(x+1,y+1,previewCell-2,previewCell-2);
-      }
-      if(guesses[i] && guesses[i][j] === 1 && board[i] && board[i][j] === 0){
-        oppCtx.strokeStyle = "#0088FF";
-        oppCtx.beginPath();
-        oppCtx.moveTo(x+3,y+3);
-        oppCtx.lineTo(x+previewCell-3,y+previewCell-3);
-        oppCtx.moveTo(x+previewCell-3,y+3);
-        oppCtx.lineTo(x+3,y+previewCell-3);
-        oppCtx.stroke();
-      }
-    }
-  }
-}
-
 function sendPlayerUpdate(){
   if(!socket){
     return;
@@ -198,114 +129,22 @@ function sendPlayerUpdate(){
     score: score,
     level: level,
     lives: lives,
-    gameMode: gameMode,
-    gridSize: Number(gridSize),
-    boardState: {
-      grid: grid,
-      gridGuesses: gridGuesses
-    }
+    gameMode: gameMode
   });
-}
-
-function requestMatch(){
-  if(!socket){
-    updateMatchStatus("Offline mode: no multiplayer server found.");
-    return;
-  }
-  isSearchingMatch = true;
-  activeOpponentId = null;
-  opponentState = null;
-  renderOpponentPreview();
-  updateMatchStatus("Searching for the next available player...");
-  socket.emit("match:request");
-}
-
-function startRoundAfterMatch(){
-  clearSceneObjects();
-  lives = totalLives;
-  level = 0;
-  timer = 0;
-  timeLimit = timeLimitInit;
-  score = 0;
-  updateGridSize();
-  clearInterval(intervalID);
-  intervalID = setInterval(function(){timer++},10);
-  gameMode = "play";
-  initGrid();
-  sendPlayerUpdate();
 }
 
 function initMultiplayer(){
-  var nameInput = document.getElementById("playerName");
-  var saveButton = document.getElementById("saveNameButton");
-  var nameStatus = document.getElementById("nameStatus");
-
-  if(nameInput){
-    nameInput.value = myPlayerName;
-  }
-
-  if(saveButton){
-    saveButton.addEventListener("click", function(){
-      var nextName = (nameInput && nameInput.value ? nameInput.value : "").trim();
-      if(nextName){
-        myPlayerName = nextName.slice(0,24);
-        nameInput.value = myPlayerName;
-        if(nameStatus){
-          nameStatus.textContent = "Saved as " + myPlayerName;
-        }
-        sendPlayerUpdate();
-      }
-    });
-  }
-
   if(!socket){
     updateMultiplayerPanel([]);
-    updateMatchStatus("Offline mode: multiplayer unavailable.");
     return;
   }
-
   socket.on("players:update", function(players){
     updateMultiplayerPanel(players);
-  });
-
-  socket.on("match:waiting", function(){
-    isSearchingMatch = true;
-    updateMatchStatus("Waiting for an opponent to click start...");
-  });
-
-  socket.on("match:assigned", function(payload){
-    isSearchingMatch = false;
-    activeOpponentId = payload.opponentId;
-    updateMatchStatus("Matched vs " + (payload.opponentName || "Opponent") + "! Game starting...");
-    startRoundAfterMatch();
-  });
-
-  socket.on("match:ended", function(){
-    activeOpponentId = null;
-    opponentState = null;
-    renderOpponentPreview();
-    updateMatchStatus("Opponent left. Click Start to find a new match.");
-    if(gameMode === "play"){
-      clearInterval(intervalID);
-      gameMode = "menu";
-      clearSceneObjects();
-      createObject(200,130,100,30,"PlayButton","Button","Start");
-    }
-  });
-
-  socket.on("opponent:update", function(nextState){
-    if(activeOpponentId && nextState.id !== activeOpponentId){
-      return;
-    }
-    opponentState = nextState;
-    renderOpponentPreview();
   });
 
   setInterval(function(){
     sendPlayerUpdate();
   }, 250);
-
-  renderOpponentPreview();
 }
 
 var grid = [];
