@@ -2,11 +2,54 @@
 <html>
 <title>Speed-o-Gram</title>
 <style>
-  #speedogram {
+  body {
+    font-family: Arial, sans-serif;
+  }
+  #arena {
+    width: 900px;
+    margin: 20px auto 0;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  #speedogram,
+  #opponentCanvas {
     display: block;
-    margin-left: auto;
-    margin-right: auto;
-    margin-top: 20px;
+  }
+  .boardWrap {
+    color: #0088FF;
+  }
+  .boardWrap h3 {
+    margin: 0 0 6px;
+  }
+  #opponentCanvas {
+    border: 1px solid #8cc6ff;
+    border-radius: 6px;
+  }
+  #multiplayerPanel {
+    width: 900px;
+    margin: 12px auto 0;
+    font-family: Arial, sans-serif;
+    color: #0088FF;
+  }
+  #controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  #playerName {
+    border: 1px solid #8cc6ff;
+    border-radius: 4px;
+    padding: 6px;
+    min-width: 180px;
+  }
+  #nameStatus,
+  #matchStatus,
+  #multiplayerPlayers {
+    font-size: 13px;
+    line-height: 1.4;
   }
   #multiplayerPanel {
     width: 400px;
@@ -183,9 +226,7 @@ function renderSceneObjects(){
   }
 }
 function clearSceneObjects(){
-  for(var object in sceneObjects){
-    sceneObjects.pop(object);
-  }
+  sceneObjects = [];
 }
 
 function renderButton(x,y,width,height,text){
@@ -420,29 +461,12 @@ var intervalID;
 function click(){
   if(gameMode == "menu"){
     if(hitTest("PlayButton")){
-      clearSceneObjects();
-      level = 0;
-      timer = 0;
-      timeLimit = timeLimitInit;
-      score = 0;
-      updateGridSize()
-      intervalID = setInterval(function(){timer++},10)
-      gameMode = "play";
-      initGrid();
+      requestMatch();
     }
   }
   if(gameMode == "gameOver"){
     if(hitTest("RestartButton")){
-      clearSceneObjects();
-      lives = totalLives;
-      level = 0;
-      timer = 0;
-      timeLimit = timeLimitInit;
-      score = 0;
-      updateGridSize()
-      intervalID = setInterval(function(){timer++},10)
-      gameMode = "play";
-      initGrid();
+      requestMatch();
     }
   }
 }
