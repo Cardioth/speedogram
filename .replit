@@ -1,0 +1,6 @@
+entrypoint = "server.js"
+modules = ["nodejs-20"]
+run = "npm install && npm start"
+
+[nix]
+channel = "stable-24_05"
