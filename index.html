@@ -8,11 +8,30 @@
     margin-right: auto;
     margin-top: 20px;
   }
+  #multiplayerPanel {
+    width: 400px;
+    margin: 12px auto 0;
+    font-family: Arial, sans-serif;
+    color: #0088FF;
+  }
+  #multiplayerPanel h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+  }
+  #multiplayerPlayers {
+    font-size: 13px;
+    line-height: 1.4;
+  }
 </style>
 <body>
   <canvas id="speedogram" width="400" height="400" >Hello</canvas>
+  <div id="multiplayerPanel">
+    <h3>Live Players</h3>
+    <div id="multiplayerPlayers">Waiting for players…</div>
+  </div>
 </body>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
 var versionNumber = "V0.1"
 var canvas = document.getElementById('speedogram');
@@ -36,6 +55,54 @@ var timeLimitInit = 6000;
 var timeLimit = timeLimitInit;
 var timeIncrement = 700;
 var score = 0;
+
+var socket = typeof io !== "undefined" ? io() : null;
+var myPlayerName = "Player" + Math.floor(Math.random()*1000);
+var latestRoster = [];
+
+function updateMultiplayerPanel(players){
+  var panel = document.getElementById("multiplayerPlayers");
+  if(!panel){
+    return;
+  }
+  latestRoster = players || [];
+  if(!latestRoster.length){
+    panel.textContent = "Waiting for players…";
+    return;
+  }
+  panel.innerHTML = latestRoster
+    .map(function(player){
+      return player.name + " — score " + player.score + ", lvl " + player.level + ", lives " + player.lives + " (" + player.gameMode + ")";
+    })
+    .join("<br>");
+}
+
+function sendPlayerUpdate(){
+  if(!socket){
+    return;
+  }
+  socket.emit("player:update", {
+    name: myPlayerName,
+    score: score,
+    level: level,
+    lives: lives,
+    gameMode: gameMode
+  });
+}
+
+function initMultiplayer(){
+  if(!socket){
+    updateMultiplayerPanel([]);
+    return;
+  }
+  socket.on("players:update", function(players){
+    updateMultiplayerPanel(players);
+  });
+
+  setInterval(function(){
+    sendPlayerUpdate();
+  }, 250);
+}
 
 var grid = [];
 var gridGuesses = [];
@@ -506,6 +573,7 @@ function renderCells(){
 }
 
 init();
+initMultiplayer();
 
 </script>
 
