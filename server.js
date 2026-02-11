@@ -35,8 +35,24 @@ function makePlayerTag(playerId) {
   return String(playerId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-4) || "0000";
 }
 
+function makeAnonTag(playerId) {
+  const source = String(playerId || "");
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = ((hash * 31) + source.charCodeAt(i)) % 1000;
+  }
+  return String(hash).padStart(3, "0");
+}
+
+function buildDisplayName(baseName, playerId, hasChosenName) {
+  if (hasChosenName && typeof baseName === "string" && baseName.trim()) {
+    return baseName.trim().slice(0, 24);
+  }
+  return `Anon#${makeAnonTag(playerId)}`;
+}
+
 function buildPlayerName(baseName, playerId) {
-  const safeBaseName = String(baseName || "Player").trim().slice(0, 24) || "Player";
+  const safeBaseName = String(baseName || "Anon").trim().slice(0, 24) || "Anon";
   return `${safeBaseName}#${makePlayerTag(playerId)}`;
 }
 
@@ -234,7 +250,7 @@ function toPublicState(state) {
 function buildPlayerList() {
   return Array.from(players.values()).map((player) => ({
     id: player.id,
-    name: player.name,
+    name: player.displayName,
     score: player.lastScore || 0,
     points: player.lastScore || 0,
     level: player.lastLevel || 0,
@@ -247,16 +263,16 @@ function emitPlayers() {
   io.emit("players:update", buildPlayerList());
 }
 
-function updateLeaderboardEntry(playerId, name, points) {
+function updateLeaderboardEntry(playerId, displayName, points) {
   if (typeof playerId !== "string" || !playerId.trim()) return;
-  if (typeof name !== "string" || !name.trim()) return;
+  if (typeof displayName !== "string" || !displayName.trim()) return;
   const safePoints = Number.isFinite(points) ? Math.max(0, Math.floor(points)) : 0;
   if (safePoints <= 0) return;
   const existing = leaderboard.get(playerId);
   if (!existing || safePoints > existing.bestPoints) {
     leaderboard.set(playerId, {
       id: playerId,
-      name,
+      name: displayName,
       bestPoints: safePoints,
       updatedAt: Date.now()
     });
@@ -320,20 +336,20 @@ function emitMatchState(match) {
   p2.lastLevel = match.states[p2Id].level;
   p2.lastLives = match.states[p2Id].lives;
 
-  updateLeaderboardEntry(p1.id, p1.name, match.states[p1Id].points);
-  updateLeaderboardEntry(p2.id, p2.name, match.states[p2Id].points);
+  updateLeaderboardEntry(p1.id, p1.displayName, match.states[p1Id].points);
+  updateLeaderboardEntry(p2.id, p2.displayName, match.states[p2Id].points);
 
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
-    player: { id: p1.id, name: p1.name, ...match.states[p1Id], countdownRemaining },
-    opponent: { id: p2.id, name: p2.name, ...toPublicState(match.states[p2Id]), countdownRemaining },
+    player: { id: p1.id, name: p1.displayName, ...match.states[p1Id], countdownRemaining },
+    opponent: { id: p2.id, name: p2.displayName, ...toPublicState(match.states[p2Id]), countdownRemaining },
     playerRematchRequested: match.rematchVotes?.has(p1Id) || false,
     opponentRematchRequested: match.rematchVotes?.has(p2Id) || false
   });
   io.to(p2Id).emit("match:update", {
     matchId: match.id,
-    player: { id: p2.id, name: p2.name, ...match.states[p2Id], countdownRemaining },
-    opponent: { id: p1.id, name: p1.name, ...toPublicState(match.states[p1Id]), countdownRemaining },
+    player: { id: p2.id, name: p2.displayName, ...match.states[p2Id], countdownRemaining },
+    opponent: { id: p1.id, name: p1.displayName, ...toPublicState(match.states[p1Id]), countdownRemaining },
     playerRematchRequested: match.rematchVotes?.has(p2Id) || false,
     opponentRematchRequested: match.rematchVotes?.has(p1Id) || false
   });
@@ -519,8 +535,8 @@ function maybeStartMatchmaking() {
     p1.status = "play";
     p2.status = "play";
 
-    io.to(p1Id).emit("match:ready", { opponentName: p2.name });
-    io.to(p2Id).emit("match:ready", { opponentName: p1.name });
+    io.to(p1Id).emit("match:ready", { opponentName: p2.displayName });
+    io.to(p2Id).emit("match:ready", { opponentName: p1.displayName });
     emitMatchState(match);
   }
 }
@@ -576,8 +592,10 @@ setInterval(() => {
 io.on("connection", (socket) => {
   players.set(socket.id, {
     id: socket.id,
-    baseName: `Player ${players.size + 1}`,
-    name: buildPlayerName(`Player ${players.size + 1}`, socket.id),
+    hasChosenName: false,
+    baseName: "",
+    name: buildPlayerName("Anon", socket.id),
+    displayName: buildDisplayName("", socket.id, false),
     status: "menu",
     matchId: null,
     lastScore: 0,
@@ -594,10 +612,12 @@ io.on("connection", (socket) => {
 
     if (typeof incoming?.name === "string" && incoming.name.trim()) {
       player.baseName = incoming.name.trim().slice(0, 24);
+      player.hasChosenName = true;
     }
     player.name = buildPlayerName(player.baseName, player.id);
+    player.displayName = buildDisplayName(player.baseName, player.id, player.hasChosenName);
 
-    updateLeaderboardEntry(player.id, player.name, player.lastScore || 0);
+    updateLeaderboardEntry(player.id, player.displayName, player.lastScore || 0);
     emitPlayers();
     emitLeaderboard();
   });
@@ -659,7 +679,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const player = players.get(socket.id);
     if (player) {
-      updateLeaderboardEntry(player.id, player.name, player.lastScore || 0);
+      updateLeaderboardEntry(player.id, player.displayName, player.lastScore || 0);
     }
     removeFromQueue(socket.id);
 
