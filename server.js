@@ -31,6 +31,15 @@ const matches = new Map();
 const leaderboard = new Map();
 const LEADERBOARD_LIMIT = 10;
 
+function makePlayerTag(playerId) {
+  return String(playerId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-4) || "0000";
+}
+
+function buildPlayerName(baseName, playerId) {
+  const safeBaseName = String(baseName || "Player").trim().slice(0, 24) || "Player";
+  return `${safeBaseName}#${makePlayerTag(playerId)}`;
+}
+
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
 });
@@ -238,12 +247,15 @@ function emitPlayers() {
   io.emit("players:update", buildPlayerList());
 }
 
-function updateLeaderboardEntry(name, points) {
+function updateLeaderboardEntry(playerId, name, points) {
+  if (typeof playerId !== "string" || !playerId.trim()) return;
   if (typeof name !== "string" || !name.trim()) return;
   const safePoints = Number.isFinite(points) ? Math.max(0, Math.floor(points)) : 0;
-  const existing = leaderboard.get(name);
+  if (safePoints <= 0) return;
+  const existing = leaderboard.get(playerId);
   if (!existing || safePoints > existing.bestPoints) {
-    leaderboard.set(name, {
+    leaderboard.set(playerId, {
+      id: playerId,
       name,
       bestPoints: safePoints,
       updatedAt: Date.now()
@@ -308,8 +320,8 @@ function emitMatchState(match) {
   p2.lastLevel = match.states[p2Id].level;
   p2.lastLives = match.states[p2Id].lives;
 
-  updateLeaderboardEntry(p1.name, match.states[p1Id].points);
-  updateLeaderboardEntry(p2.name, match.states[p2Id].points);
+  updateLeaderboardEntry(p1.id, p1.name, match.states[p1Id].points);
+  updateLeaderboardEntry(p2.id, p2.name, match.states[p2Id].points);
 
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
@@ -564,7 +576,8 @@ setInterval(() => {
 io.on("connection", (socket) => {
   players.set(socket.id, {
     id: socket.id,
-    name: `Player ${players.size + 1}`,
+    baseName: `Player ${players.size + 1}`,
+    name: buildPlayerName(`Player ${players.size + 1}`, socket.id),
     status: "menu",
     matchId: null,
     lastScore: 0,
@@ -579,23 +592,12 @@ io.on("connection", (socket) => {
     const player = players.get(socket.id);
     if (!player) return;
 
-    const previousName = player.name;
     if (typeof incoming?.name === "string" && incoming.name.trim()) {
-      player.name = incoming.name.trim().slice(0, 24);
+      player.baseName = incoming.name.trim().slice(0, 24);
     }
+    player.name = buildPlayerName(player.baseName, player.id);
 
-    if (previousName !== player.name) {
-      const previousBest = leaderboard.get(previousName);
-      if (previousBest && !leaderboard.has(player.name)) {
-        leaderboard.set(player.name, {
-          ...previousBest,
-          name: player.name,
-          updatedAt: Date.now()
-        });
-      }
-    }
-
-    updateLeaderboardEntry(player.name, player.lastScore || 0);
+    updateLeaderboardEntry(player.id, player.name, player.lastScore || 0);
     emitPlayers();
     emitLeaderboard();
   });
@@ -657,7 +659,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const player = players.get(socket.id);
     if (player) {
-      updateLeaderboardEntry(player.name, player.lastScore || 0);
+      updateLeaderboardEntry(player.id, player.name, player.lastScore || 0);
     }
     removeFromQueue(socket.id);
 
