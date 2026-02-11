@@ -339,7 +339,7 @@ var currentRound = 1;
 var winnerText = "";
 
 var socket = typeof io !== "undefined" ? io() : null;
-var myPlayerName = "Player" + Math.floor(Math.random()*1000);
+var myPlayerName = "";
 var latestRoster = [];
 var latestLeaderboard = [];
 var startButton = document.getElementById("startButton");
@@ -631,7 +631,7 @@ function initMultiplayer(){
   socket.on("match:update", function(payload){
     applyServerState(payload.player);
     opponentState = payload.opponent;
-    myDisplayName = (payload.player && payload.player.name) ? payload.player.name : myPlayerName;
+    myDisplayName = (payload.player && payload.player.name) ? payload.player.name : (myPlayerName || "You");
     opponentDisplayName = (payload.opponent && payload.opponent.name) ? payload.opponent.name : "Opponent";
     drawOpponentBoard();
     if(gameMode === "waiting" || gameMode === "menu"){
@@ -669,7 +669,7 @@ function initMultiplayer(){
     gameMode = "menu";
     opponentState = null;
     opponentDisplayName = "Opponent";
-    myDisplayName = myPlayerName;
+    myDisplayName = myPlayerName || "You";
     drawOpponentBoard();
     startButton.disabled = false;
     startButton.textContent = "Start";
@@ -703,7 +703,7 @@ function init(){
   if(appVersionEl){
     appVersionEl.textContent = versionNumber;
   }
-  myDisplayName = myPlayerName;
+  myDisplayName = myPlayerName || "You";
   drawOpponentBoard();
   setMatchmakingVisible(true);
   enterFrame();
@@ -1339,7 +1339,7 @@ startButton.addEventListener("click", function(){
   var requestedName = playerNameInput.value && playerNameInput.value.trim();
   if(requestedName){
     myPlayerName = requestedName.slice(0,24);
-    myDisplayName = myPlayerName;
+    myDisplayName = myPlayerName || "You";
   }
   sendPlayerUpdate();
   if(gameMode === "gameOver" && socket){
@@ -1356,7 +1356,7 @@ playerNameInput.addEventListener("change", function(){
   var requestedName = playerNameInput.value && playerNameInput.value.trim();
   if(requestedName){
     myPlayerName = requestedName.slice(0,24);
-    myDisplayName = myPlayerName;
+    myDisplayName = myPlayerName || "You";
     sendPlayerUpdate();
   }
 });
