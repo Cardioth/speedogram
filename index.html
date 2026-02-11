@@ -82,6 +82,33 @@
     font-size: 13px;
     line-height: 1.4;
   }
+  #shopPanel {
+    width: 900px;
+    margin: 10px auto 0;
+    text-align: center;
+    color: #0088FF;
+    font-size: 13px;
+  }
+  #shopChoices {
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .shopChoiceBtn {
+    border: 1px solid #8cc6ff;
+    background: #f7fbff;
+    border-radius: 4px;
+    color: #0088FF;
+    padding: 6px 10px;
+    cursor: pointer;
+    max-width: 260px;
+  }
+  .shopChoiceBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 </style>
 <body>
   <div id="appHeader">
@@ -93,6 +120,10 @@
     <button id="startButton">Start</button>
   </div>
   <div id="matchStatus" class="matchmakingUI" style="text-align:center;color:#0088FF;font-size:13px;">Enter your name and click Start.</div>
+  <div id="shopPanel" class="hidden">
+    <div id="shopTitle">Round shop</div>
+    <div id="shopChoices"></div>
+  </div>
     <div id="arena">
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
   </div>
@@ -126,6 +157,9 @@ var timeLimitInit = 12000;
 var timeLimit = timeLimitInit;
 var timeIncrement = 700;
 var score = 0;
+var points = 0;
+var currentRound = 1;
+var winnerText = "";
 
 var socket = typeof io !== "undefined" ? io() : null;
 var myPlayerName = "Player" + Math.floor(Math.random()*1000);
@@ -145,6 +179,11 @@ var HEART_ICON_WIDTH = 24;
 var HEART_SPACING = 25;
 var lastDraggedCell = null;
 var countdownRemaining = 0;
+var shopPanel = document.getElementById("shopPanel");
+var shopChoicesEl = document.getElementById("shopChoices");
+var shopTitleEl = document.getElementById("shopTitle");
+var shopOptions = [];
+var hasPurchasedThisShop = false;
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -158,9 +197,41 @@ function updateMultiplayerPanel(players){
   }
   panel.innerHTML = latestRoster
     .map(function(player){
-      return player.name + " — score " + player.score + ", lvl " + player.level + ", lives " + player.lives + " (" + player.gameMode + ")";
+      return player.name + " — points " + (player.points || player.score || 0) + ", lvl " + player.level + ", lives " + player.lives + " (" + player.gameMode + ")";
     })
     .join("<br>");
+}
+
+function setShopVisible(visible){
+  if(!shopPanel){
+    return;
+  }
+  shopPanel.classList.toggle("hidden", !visible);
+}
+
+function renderShopChoices(){
+  if(!shopChoicesEl){
+    return;
+  }
+  shopChoicesEl.innerHTML = "";
+  if(!shopOptions || !shopOptions.length){
+    return;
+  }
+  for(var i = 0; i < shopOptions.length; i++){
+    (function(option){
+      var button = document.createElement("button");
+      button.className = "shopChoiceBtn";
+      button.textContent = option.label;
+      button.disabled = !!hasPurchasedThisShop;
+      button.addEventListener("click", function(){
+        if(!socket || hasPurchasedThisShop){
+          return;
+        }
+        socket.emit("shop:buy", { upgradeId: option.id });
+      });
+      shopChoicesEl.appendChild(button);
+    })(shopOptions[i]);
+  }
 }
 
 function sendPlayerUpdate(){
@@ -253,7 +324,7 @@ function drawOpponentBoard(){
     renderOpponentHeart((livesCount*25)+opponentGridOffSetX+10-(opLives*12.5),opGridOffSetY+opOverallGridSize+25);
   }
 
-  var opScore = opponentState.score || 0;
+  var opScore = opponentState.points || opponentState.score || 0;
   var opponentScoreX = opponentGridOffSetX - gridBoundaryMargin - 22;
   for(var star = 0; star < opScore; star++){
     renderStar(opponentScoreX,60+(star%5*20));
@@ -294,6 +365,7 @@ function initMultiplayer(){
     }
     if(payload.player && payload.player.gameMode === "gameOver"){
       gameMode = "gameOver";
+      setShopVisible(false);
       if(payload.playerRematchRequested){
         startButton.disabled = true;
         startButton.textContent = "Waiting...";
@@ -322,6 +394,7 @@ function initMultiplayer(){
     setMatchmakingVisible(true);
     sharedTimeRemaining = "--";
     pendingPredictions = [];
+    setShopVisible(false);
     setMatchStatus(payload.reason || "Match ended.");
   });
 }
@@ -378,8 +451,9 @@ function enterFrame(){
   ctx.font = "14px Arial";
   ctx.fillStyle = "#0088FF";
   ctx.fillText("Time: " + sharedTimeRemaining, 790, 142);
+  ctx.fillText("Round: " + currentRound + "/6", 790, 160);
 
-  if(gameMode == "play" || gameMode == "gameOver" || gameMode == "countdown"){
+  if(gameMode == "play" || gameMode == "gameOver" || gameMode == "countdown" || gameMode == "shop" || gameMode == "roundOver"){
     renderBackdrop();
     renderCells();
     renderClueText();
@@ -390,6 +464,9 @@ function enterFrame(){
   if(gameMode == "play"){
     renderMouseOver();
   }
+  if(gameMode == "shop"){
+    renderShopOverlay();
+  }
   if(gameMode == "countdown"){
     renderCountdownOverlay();
   }
@@ -397,6 +474,24 @@ function enterFrame(){
     renderGameOver();
   }
   window.requestAnimationFrame(enterFrame);
+}
+
+function renderShopOverlay(){
+  var boardCenterX = gridOffSetX + (overallGridSize/2);
+  var boardCenterY = gridOffSetY + (overallGridSize/2);
+
+  ctx.globalAlpha = 0.82;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.roundRect(gridOffSetX-24, gridOffSetY-24, overallGridSize+48, overallGridSize+48, 8, true, false);
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = "#0088FF";
+  ctx.font = "bold 24px Arial";
+  var title = "Round " + currentRound + " complete";
+  ctx.fillText(title, boardCenterX - (ctx.measureText(title).width / 2), boardCenterY - 8);
+  ctx.font = "16px Arial";
+  var subtitle = hasPurchasedThisShop ? "Waiting for opponent to choose..." : "Choose an upgrade below";
+  ctx.fillText(subtitle, boardCenterX - (ctx.measureText(subtitle).width / 2), boardCenterY + 24);
 }
 function renderCountdownOverlay(){
   var seconds = Math.max(1, countdownRemaining || 0);
@@ -419,7 +514,7 @@ function renderCountdownOverlay(){
 }
 
 function renderGameOver(){
-  var gameOverText = "Final Score: " + score;
+  var gameOverText = winnerText || ("Final Points: " + points);
   ctx.font = "14px Arial";
   ctx.fillStyle = "#0088FF";
   ctx.fillText(gameOverText, gridOffSetX-gridBoundaryMargin, 24);
@@ -489,7 +584,7 @@ function renderStopwatchHand(x,y,time){
 }
 function renderScore(){
   var myScoreX = gridOffSetX-gridBoundaryMargin-22;
-  for(var i=0;i<score;i++){
+  for(var i=0;i<points;i++){
     renderStar(myScoreX,60+(i%5*20));
   }
 }
@@ -743,6 +838,7 @@ function requestMatch(){
   pendingPredictions = [];
   gameMode = "waiting";
   setMatchStatus("Waiting for an opponent...");
+  setShopVisible(false);
   startButton.disabled = true;
   startButton.textContent = "Waiting...";
   socket.emit("matchmaking:join");
@@ -764,7 +860,10 @@ function applyServerState(state){
   timer = state.timer;
   level = state.level;
   score = state.score;
+  points = Number.isFinite(state.points) ? state.points : state.score;
   lives = state.lives;
+  currentRound = state.round || currentRound;
+  winnerText = state.winnerText || "";
   timeLimit = state.timeLimit;
   updateSharedClock(timer, timeLimit);
   gridSize = state.gridSize;
@@ -775,12 +874,30 @@ function applyServerState(state){
   columnsTotal = state.columnsTotal;
   rowsTotal = state.rowsTotal;
 
+  shopOptions = state.shopOptions || [];
+  hasPurchasedThisShop = !!state.hasPurchasedThisShop;
+  renderShopChoices();
+
   reconcilePendingPredictions();
 
   if(gameMode === "countdown") {
     setMatchStatus("Match starts in " + Math.max(1, countdownRemaining) + "...");
+    setShopVisible(false);
   } else if(gameMode === "play") {
-    setMatchStatus("Playing against " + (opponentDisplayName || "opponent"));
+    setMatchStatus("Round " + currentRound + "/6: Playing against " + (opponentDisplayName || "opponent"));
+    setShopVisible(false);
+  } else if(gameMode === "roundOver") {
+    setMatchStatus("Round " + currentRound + " complete. Waiting for opponent...");
+    setShopVisible(false);
+  } else if(gameMode === "shop") {
+    setMatchStatus("Shop: choose 1 upgrade for next round.");
+    if(shopTitleEl){
+      shopTitleEl.textContent = "Round " + currentRound + " Shop";
+    }
+    setShopVisible(true);
+  } else if(gameMode === "gameOver") {
+    setMatchStatus(winnerText || "Game over. Click Start to request a rematch.");
+    setShopVisible(false);
   }
 
   if(gameMode !== "play") {
