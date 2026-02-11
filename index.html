@@ -139,6 +139,8 @@ var sharedTimeRemaining = "--";
 var opponentGridOffSetX = 560;
 var myDisplayName = "You";
 var opponentDisplayName = "Opponent";
+var pendingPredictions = [];
+var MAX_PENDING_PREDICTIONS = 64;
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -258,6 +260,7 @@ function initMultiplayer(){
   });
 
   socket.on("match:ready", function(payload){
+    pendingPredictions = [];
     gameMode = "waiting";
     setMatchStatus("Match found! Starting vs " + payload.opponentName + "...");
   });
@@ -304,6 +307,7 @@ function initMultiplayer(){
     startButton.textContent = "Start";
     setMatchmakingVisible(true);
     sharedTimeRemaining = "--";
+    pendingPredictions = [];
     setMatchStatus(payload.reason || "Match ended.");
   });
 }
@@ -562,6 +566,44 @@ function gameOverScreen(){
     }
 }
 
+function prunePendingPredictions(){
+  if(!pendingPredictions || !pendingPredictions.length){
+    return;
+  }
+  var now = Date.now();
+  pendingPredictions = pendingPredictions.filter(function(action){
+    return now - action.createdAt < 2000;
+  });
+  if(pendingPredictions.length > MAX_PENDING_PREDICTIONS){
+    pendingPredictions = pendingPredictions.slice(pendingPredictions.length - MAX_PENDING_PREDICTIONS);
+  }
+}
+
+function reconcilePendingPredictions(){
+  if(!pendingPredictions || !pendingPredictions.length){
+    return;
+  }
+
+  prunePendingPredictions();
+
+  var remaining = [];
+  for(var i = 0; i < pendingPredictions.length; i++){
+    var action = pendingPredictions[i];
+    if(!gridGuesses || !gridGuesses[action.x]){
+      continue;
+    }
+
+    if(gridGuesses[action.x][action.y] === 1){
+      continue;
+    }
+
+    applyLocalPrediction(action.x, action.y, action.button);
+    remaining.push(action);
+  }
+
+  pendingPredictions = remaining;
+}
+
 function applyLocalPrediction(x, y, button){
   if(!grid || !gridGuesses || !grid[x] || !gridGuesses[x]){
     return;
@@ -615,6 +657,8 @@ function sendActionFromPointer(button){
   for(var i = 0; i<gridSize;i++){
     for(var j = 0; j<gridSize;j++){
       if(mouseX > i*cellSize+gridOffSetX && mouseX < i*cellSize+cellSize+gridOffSetX && mouseY > j*cellSize+gridOffSetY && mouseY < j*cellSize+cellSize+gridOffSetY){
+        pendingPredictions.push({ x: i, y: j, button: button, createdAt: Date.now() });
+        prunePendingPredictions();
         applyLocalPrediction(i, j, button);
         socket.emit("game:action", { x: i, y: j, button: button });
         return;
@@ -640,6 +684,7 @@ function requestMatch(){
     setMatchStatus("No server connection.");
     return;
   }
+  pendingPredictions = [];
   gameMode = "waiting";
   setMatchStatus("Waiting for an opponent...");
   startButton.disabled = true;
@@ -649,7 +694,7 @@ function requestMatch(){
 
 function click(evt){
   getPointerPosition(evt);
-  if((evt.detail === 0 || mouseButton === 0) && gameMode == "play"){
+  if(evt.detail === 0 && gameMode == "play"){
     sendActionFromPointer(0);
   }
 }
@@ -672,6 +717,13 @@ function applyServerState(state){
   Ycounters = state.Ycounters;
   columnsTotal = state.columnsTotal;
   rowsTotal = state.rowsTotal;
+
+  reconcilePendingPredictions();
+
+  if(gameMode !== "play") {
+    pendingPredictions = [];
+  }
+
   overallGridSize = gridSize*cellSize;
   gridOffSetX = 120;
   gridOffSetY = 120;
