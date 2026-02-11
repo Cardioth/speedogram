@@ -122,7 +122,7 @@ var mouseState = "up";
 var mouseButton;
 var timer;
 var timerState = "stopped";
-var timeLimitInit = 6000;
+var timeLimitInit = 12000;
 var timeLimit = timeLimitInit;
 var timeIncrement = 700;
 var score = 0;
@@ -144,6 +144,7 @@ var MAX_PENDING_PREDICTIONS = 64;
 var HEART_ICON_WIDTH = 24;
 var HEART_SPACING = 25;
 var lastDraggedCell = null;
+var countdownRemaining = 0;
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -229,6 +230,7 @@ function drawOpponentBoard(){
   }
 
   var guesses = opponentState.gridGuesses || [];
+  var opGrid = opponentState.grid || [];
   for(var i = 0; i<opGridSize;i++){
     for(var j = 0; j<opGridSize;j++){
       ctx.lineWidth = 1;
@@ -236,8 +238,12 @@ function drawOpponentBoard(){
       ctx.fillStyle = "#FFFFFF";
       ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,true);
       if(guesses[i] && guesses[i][j] === 1){
-        ctx.fillStyle = "#0088FF";
-        ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,false);
+        if(opGrid[i] && opGrid[i][j] === 1){
+          ctx.fillStyle = "#0088FF";
+          ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,false);
+        } else {
+          renderCross(i*cellSize+opponentGridOffSetX-3,j*cellSize+opGridOffSetY-3);
+        }
       }
     }
   }
@@ -276,8 +282,12 @@ function initMultiplayer(){
     opponentDisplayName = (payload.opponent && payload.opponent.name) ? payload.opponent.name : "Opponent";
     drawOpponentBoard();
     if(gameMode === "waiting" || gameMode === "menu"){
-      gameMode = "play";
-      setMatchStatus("Playing against " + (payload.opponent && payload.opponent.name ? payload.opponent.name : "opponent"));
+      gameMode = payload.player && payload.player.gameMode ? payload.player.gameMode : "play";
+      if(gameMode === "countdown"){
+        setMatchStatus("Match starts in 3...");
+      } else {
+        setMatchStatus("Playing against " + (payload.opponent && payload.opponent.name ? payload.opponent.name : "opponent"));
+      }
       startButton.disabled = true;
       startButton.textContent = "In Match";
       setMatchmakingVisible(false);
@@ -369,7 +379,7 @@ function enterFrame(){
   ctx.fillStyle = "#0088FF";
   ctx.fillText("Time: " + sharedTimeRemaining, 790, 142);
 
-  if(gameMode == "play" || gameMode == "gameOver"){
+  if(gameMode == "play" || gameMode == "gameOver" || gameMode == "countdown"){
     renderBackdrop();
     renderCells();
     renderClueText();
@@ -380,11 +390,34 @@ function enterFrame(){
   if(gameMode == "play"){
     renderMouseOver();
   }
+  if(gameMode == "countdown"){
+    renderCountdownOverlay();
+  }
   if(gameMode == "gameOver"){
     renderGameOver();
   }
   window.requestAnimationFrame(enterFrame);
 }
+function renderCountdownOverlay(){
+  var seconds = Math.max(1, countdownRemaining || 0);
+  var boardCenterX = gridOffSetX + (overallGridSize/2);
+  var boardCenterY = gridOffSetY + (overallGridSize/2);
+
+  ctx.globalAlpha = 0.82;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.roundRect(gridOffSetX-24, gridOffSetY-24, overallGridSize+48, overallGridSize+48, 8, true, false);
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = "#0088FF";
+  ctx.font = "bold 56px Arial";
+  var countdownText = String(seconds);
+  ctx.fillText(countdownText, boardCenterX - (ctx.measureText(countdownText).width / 2), boardCenterY + 20);
+
+  ctx.font = "16px Arial";
+  var message = "Get ready!";
+  ctx.fillText(message, boardCenterX - (ctx.measureText(message).width / 2), boardCenterY - 30);
+}
+
 function renderGameOver(){
   var gameOverText = "Final Score: " + score;
   ctx.font = "14px Arial";
@@ -727,6 +760,7 @@ function applyServerState(state){
     return;
   }
   gameMode = state.gameMode;
+  countdownRemaining = Number.isFinite(state.countdownRemaining) ? state.countdownRemaining : 0;
   timer = state.timer;
   level = state.level;
   score = state.score;
@@ -742,6 +776,12 @@ function applyServerState(state){
   rowsTotal = state.rowsTotal;
 
   reconcilePendingPredictions();
+
+  if(gameMode === "countdown") {
+    setMatchStatus("Match starts in " + Math.max(1, countdownRemaining) + "...");
+  } else if(gameMode === "play") {
+    setMatchStatus("Playing against " + (opponentDisplayName || "opponent"));
+  }
 
   if(gameMode !== "play") {
     pendingPredictions = [];

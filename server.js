@@ -10,8 +10,9 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 const TOTAL_LIVES = 3;
 const GRID_SIZE_INTERVALS = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 9, 9, 10, 10];
-const TIME_LIMIT_INIT = 6000;
+const TIME_LIMIT_INIT = 12000;
 const TIME_INCREMENT = 700;
+const MATCH_COUNTDOWN_MS = 3000;
 
 const players = new Map();
 const waitingQueue = [];
@@ -79,7 +80,7 @@ function makePuzzle(gridSize) {
   return { grid, gridGuesses, columnsTotal, rowsTotal, Xcounters, Ycounters };
 }
 
-function makePlayerState() {
+function makePlayerState(initialMode = "play") {
   const level = 0;
   const gridSize = GRID_SIZE_INTERVALS[level];
   const puzzle = makePuzzle(gridSize);
@@ -87,7 +88,7 @@ function makePlayerState() {
     score: 0,
     level,
     lives: TOTAL_LIVES,
-    gameMode: "play",
+    gameMode: initialMode,
     timer: 0,
     timeLimit: TIME_LIMIT_INIT,
     gridSize,
@@ -104,6 +105,7 @@ function toPublicState(state) {
     timer: state.timer,
     timeLimit: state.timeLimit,
     gridSize: state.gridSize,
+    grid: state.grid,
     gridGuesses: state.gridGuesses,
     Xcounters: state.Xcounters,
     Ycounters: state.Ycounters
@@ -154,6 +156,8 @@ function emitMatchState(match) {
     return;
   }
 
+  const countdownRemaining = match.roundStartsAt ? Math.max(0, Math.ceil((match.roundStartsAt - Date.now()) / 1000)) : 0;
+
   p1.lastScore = match.states[p1Id].score;
   p1.lastLevel = match.states[p1Id].level;
   p1.lastLives = match.states[p1Id].lives;
@@ -163,15 +167,15 @@ function emitMatchState(match) {
 
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
-    player: { id: p1.id, name: p1.name, ...match.states[p1Id] },
-    opponent: { id: p2.id, name: p2.name, ...toPublicState(match.states[p2Id]) },
+    player: { id: p1.id, name: p1.name, ...match.states[p1Id], countdownRemaining },
+    opponent: { id: p2.id, name: p2.name, ...toPublicState(match.states[p2Id]), countdownRemaining },
     playerRematchRequested: match.rematchVotes?.has(p1Id) || false,
     opponentRematchRequested: match.rematchVotes?.has(p2Id) || false
   });
   io.to(p2Id).emit("match:update", {
     matchId: match.id,
-    player: { id: p2.id, name: p2.name, ...match.states[p2Id] },
-    opponent: { id: p1.id, name: p1.name, ...toPublicState(match.states[p1Id]) },
+    player: { id: p2.id, name: p2.name, ...match.states[p2Id], countdownRemaining },
+    opponent: { id: p1.id, name: p1.name, ...toPublicState(match.states[p1Id]), countdownRemaining },
     playerRematchRequested: match.rematchVotes?.has(p2Id) || false,
     opponentRematchRequested: match.rematchVotes?.has(p1Id) || false
   });
@@ -255,11 +259,12 @@ function maybeStartMatchmaking() {
       id: matchId,
       players: [p1Id, p2Id],
       states: {
-        [p1Id]: makePlayerState(),
-        [p2Id]: makePlayerState()
+        [p1Id]: makePlayerState("countdown"),
+        [p2Id]: makePlayerState("countdown")
       },
       rematchVotes: new Set(),
-      status: "play"
+      status: "play",
+      roundStartsAt: Date.now() + MATCH_COUNTDOWN_MS
     };
     matches.set(matchId, match);
     p1.matchId = matchId;
@@ -276,6 +281,20 @@ function maybeStartMatchmaking() {
 setInterval(() => {
   matches.forEach((match) => {
     if (match.status !== "play") return;
+
+    if (match.roundStartsAt && Date.now() < match.roundStartsAt) {
+      emitMatchState(match);
+      return;
+    }
+
+    if (match.roundStartsAt) {
+      match.roundStartsAt = null;
+      match.players.forEach((playerId) => {
+        const state = match.states[playerId];
+        if (state.gameMode === "countdown") state.gameMode = "play";
+      });
+    }
+
     match.players.forEach((playerId) => {
       const state = match.states[playerId];
       if (state.gameMode !== "play") return;
@@ -350,8 +369,9 @@ io.on("connection", (socket) => {
 
     if (match.players.every((playerId) => match.rematchVotes.has(playerId))) {
       match.players.forEach((playerId) => {
-        match.states[playerId] = makePlayerState();
+        match.states[playerId] = makePlayerState("countdown");
       });
+      match.roundStartsAt = Date.now() + MATCH_COUNTDOWN_MS;
       match.rematchVotes.clear();
     }
 
