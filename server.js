@@ -164,12 +164,16 @@ function emitMatchState(match) {
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
     player: { id: p1.id, name: p1.name, ...match.states[p1Id] },
-    opponent: { id: p2.id, name: p2.name, ...toPublicState(match.states[p2Id]) }
+    opponent: { id: p2.id, name: p2.name, ...toPublicState(match.states[p2Id]) },
+    playerRematchRequested: match.rematchVotes?.has(p1Id) || false,
+    opponentRematchRequested: match.rematchVotes?.has(p2Id) || false
   });
   io.to(p2Id).emit("match:update", {
     matchId: match.id,
     player: { id: p2.id, name: p2.name, ...match.states[p2Id] },
-    opponent: { id: p1.id, name: p1.name, ...toPublicState(match.states[p1Id]) }
+    opponent: { id: p1.id, name: p1.name, ...toPublicState(match.states[p1Id]) },
+    playerRematchRequested: match.rematchVotes?.has(p2Id) || false,
+    opponentRematchRequested: match.rematchVotes?.has(p1Id) || false
   });
   emitPlayers();
 }
@@ -254,6 +258,7 @@ function maybeStartMatchmaking() {
         [p1Id]: makePlayerState(),
         [p2Id]: makePlayerState()
       },
+      rematchVotes: new Set(),
       status: "play"
     };
     matches.set(matchId, match);
@@ -337,7 +342,19 @@ io.on("connection", (socket) => {
     if (!player?.matchId) return;
     const match = matches.get(player.matchId);
     if (!match) return;
-    match.states[socket.id] = makePlayerState();
+
+    const state = match.states[socket.id];
+    if (!state || state.gameMode !== "gameOver") return;
+
+    match.rematchVotes.add(socket.id);
+
+    if (match.players.every((playerId) => match.rematchVotes.has(playerId))) {
+      match.players.forEach((playerId) => {
+        match.states[playerId] = makePlayerState();
+      });
+      match.rematchVotes.clear();
+    }
+
     emitMatchState(match);
   });
 

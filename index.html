@@ -277,9 +277,19 @@ function initMultiplayer(){
     }
     if(payload.player && payload.player.gameMode === "gameOver"){
       gameMode = "gameOver";
-      setMatchStatus("Game over. Click Start to queue for a new match.");
-      startButton.disabled = false;
-      startButton.textContent = "Start";
+      if(payload.playerRematchRequested){
+        startButton.disabled = true;
+        startButton.textContent = "Waiting...";
+        if(payload.opponentRematchRequested){
+          setMatchStatus("Restarting match...");
+        } else {
+          setMatchStatus("Rematch requested. Waiting for opponent...");
+        }
+      } else {
+        setMatchStatus("Game over. Click Start to request a rematch.");
+        startButton.disabled = false;
+        startButton.textContent = "Start";
+      }
       setMatchmakingVisible(true);
     }
   });
@@ -552,18 +562,52 @@ function gameOverScreen(){
     }
 }
 
-function checkVictory(){
-  return;
+function applyLocalPrediction(x, y, button){
+  if(!grid || !gridGuesses || !grid[x] || !gridGuesses[x]){
+    return;
+  }
+
+  if(grid[x][y] === 1 && gridGuesses[x][y] !== 1){
+    gridGuesses[x][y] = 1;
+    if(button !== 0){
+      lives -= 1;
+    } else {
+      var columnGuesses = 0;
+      var rowGuesses = 0;
+      for(var k = 0; k < gridSize; k++){
+        if(grid[x][k] === 1 && gridGuesses[x][k] === 1){
+          columnGuesses += 1;
+        }
+        if(grid[k][y] === 1 && gridGuesses[k][y] === 1){
+          rowGuesses += 1;
+        }
+      }
+      if(columnGuesses === columnsTotal[x]){
+        for(var l = 0; l < gridSize; l++){
+          gridGuesses[x][l] = 1;
+        }
+      }
+      if(rowGuesses === rowsTotal[y]){
+        for(var m = 0; m < gridSize; m++){
+          gridGuesses[m][y] = 1;
+        }
+      }
+    }
+  }
+
+  if(grid[x][y] === 0 && gridGuesses[x][y] !== 1){
+    gridGuesses[x][y] = 1;
+    if(button !== 2){
+      lives -= 1;
+    }
+  }
+
+  if(lives <= 0){
+    lives = 0;
+    gameMode = "gameOver";
+  }
 }
-function updateGridSize(){
-  gridSize = [gridSizeIntervals[level]];
-  overallGridSize = gridSize*cellSize;
-  gridOffSetX = 120;
-  gridOffSetY = 120;
-}
-function actionCell(){
-  return;
-}
+
 function sendActionFromPointer(button){
   if(gameMode != "play" || !socket){
     return;
@@ -571,6 +615,7 @@ function sendActionFromPointer(button){
   for(var i = 0; i<gridSize;i++){
     for(var j = 0; j<gridSize;j++){
       if(mouseX > i*cellSize+gridOffSetX && mouseX < i*cellSize+cellSize+gridOffSetX && mouseY > j*cellSize+gridOffSetY && mouseY < j*cellSize+cellSize+gridOffSetY){
+        applyLocalPrediction(i, j, button);
         socket.emit("game:action", { x: i, y: j, button: button });
         return;
       }
@@ -768,8 +813,8 @@ startButton.addEventListener("click", function(){
   if(gameMode === "gameOver" && socket){
     socket.emit("game:restart");
     startButton.disabled = true;
-    startButton.textContent = "Restarting...";
-    setMatchStatus("Restart requested...");
+    startButton.textContent = "Waiting...";
+    setMatchStatus("Rematch requested. Waiting for opponent...");
     return;
   }
   requestMatch();
