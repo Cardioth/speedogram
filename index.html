@@ -141,6 +141,9 @@ var myDisplayName = "You";
 var opponentDisplayName = "Opponent";
 var pendingPredictions = [];
 var MAX_PENDING_PREDICTIONS = 64;
+var HEART_ICON_WIDTH = 24;
+var HEART_SPACING = 25;
+var lastDraggedCell = null;
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -382,9 +385,11 @@ function enterFrame(){
   window.requestAnimationFrame(enterFrame);
 }
 function renderGameOver(){
+  var boardCenterX = gridOffSetX + (overallGridSize/2);
+  var gameOverText = "Final Score: " + score;
   ctx.font = "16px Arial";
   ctx.fillStyle = "#0088FF";
-  ctx.fillText("Score: " + score,200-(ctx.measureText("Score: " + score).width/2),120);
+  ctx.fillText(gameOverText, boardCenterX-(ctx.measureText(gameOverText).width/2), gridOffSetY-52);
 }
 
 function hitTest(object){
@@ -478,8 +483,14 @@ function renderCross(x,y){
 }
 
 function renderHealth(){
+  if(lives <= 0){
+    return;
+  }
+  var boardCenterX = gridOffSetX + (overallGridSize/2);
+  var heartsRowWidth = ((lives-1) * HEART_SPACING) + HEART_ICON_WIDTH;
+  var heartsStartX = boardCenterX - (heartsRowWidth/2);
   for(var livesCount = 0;livesCount<lives;livesCount++){
-    renderHeart((livesCount*25)+200-(lives*12.5),gridOffSetY+overallGridSize+25);
+    renderHeart(heartsStartX + (livesCount*HEART_SPACING),gridOffSetY+overallGridSize+25);
   }
 }
 
@@ -559,6 +570,9 @@ function getPointerPosition(evt){
 
 function mouseMove(evt){
     getPointerPosition(evt);
+    if(mouseState === "down"){
+      sendActionFromPointerDrag(mouseButton);
+    }
 }
 function gameOverScreen(){
     if(lives == 0){
@@ -650,17 +664,23 @@ function applyLocalPrediction(x, y, button){
   }
 }
 
-function sendActionFromPointer(button){
-  if(gameMode != "play" || !socket){
+function sendActionFromPointerDrag(button){
+  if(gameMode != "play"){
     return;
   }
   for(var i = 0; i<gridSize;i++){
     for(var j = 0; j<gridSize;j++){
       if(mouseX > i*cellSize+gridOffSetX && mouseX < i*cellSize+cellSize+gridOffSetX && mouseY > j*cellSize+gridOffSetY && mouseY < j*cellSize+cellSize+gridOffSetY){
+        if(lastDraggedCell && lastDraggedCell.x === i && lastDraggedCell.y === j && lastDraggedCell.button === button){
+          return;
+        }
+        lastDraggedCell = { x: i, y: j, button: button };
         pendingPredictions.push({ x: i, y: j, button: button, createdAt: Date.now() });
         prunePendingPredictions();
         applyLocalPrediction(i, j, button);
-        socket.emit("game:action", { x: i, y: j, button: button });
+        if(socket){
+          socket.emit("game:action", { x: i, y: j, button: button });
+        }
         return;
       }
     }
@@ -671,12 +691,14 @@ function mouseDown(evt){
 	getPointerPosition(evt);
 	mouseState = "down";
 	mouseButton = typeof evt.button === "number" ? evt.button : 0;
-  sendActionFromPointer(mouseButton);
+  lastDraggedCell = null;
+  sendActionFromPointerDrag(mouseButton);
 }
 function mouseUp(evt){
 	getPointerPosition(evt);
 	mouseState = "up";
 	mouseButton = evt && typeof evt.button === "number" ? evt.button : 0;
+  lastDraggedCell = null;
 }
 var intervalID;
 function requestMatch(){
@@ -695,7 +717,7 @@ function requestMatch(){
 function click(evt){
   getPointerPosition(evt);
   if(evt.detail === 0 && gameMode == "play"){
-    sendActionFromPointer(0);
+    sendActionFromPointerDrag(0);
   }
 }
 
