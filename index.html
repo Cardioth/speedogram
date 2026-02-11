@@ -566,21 +566,25 @@ function enterFrame(){
 }
 
 function renderShopOverlay(){
-  var boardCenterX = gridOffSetX + (overallGridSize/2);
-  var boardCenterY = gridOffSetY + (overallGridSize/2);
+  var overlayCenterX = canvas.width / 2;
+  var overlayCenterY = canvas.height / 2;
+  var overlayWidth = Math.max(overallGridSize + 48, 360);
+  var overlayHeight = 136;
+  var overlayX = overlayCenterX - (overlayWidth / 2);
+  var overlayY = overlayCenterY - (overlayHeight / 2);
 
   ctx.globalAlpha = 0.82;
   ctx.fillStyle = "#FFFFFF";
-  ctx.roundRect(gridOffSetX-24, gridOffSetY-24, overallGridSize+48, overallGridSize+48, 8, true, false);
+  ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 8, true, false);
   ctx.globalAlpha = 1;
 
   ctx.fillStyle = "#0088FF";
   ctx.font = "bold 24px Arial";
   var title = "Round " + currentRound + " complete";
-  ctx.fillText(title, boardCenterX - (ctx.measureText(title).width / 2), boardCenterY - 8);
+  ctx.fillText(title, overlayCenterX - (ctx.measureText(title).width / 2), overlayCenterY - 8);
   ctx.font = "16px Arial";
-  var subtitle = hasPurchasedThisShop ? "Waiting for opponent to choose..." : "Choose an upgrade below";
-  ctx.fillText(subtitle, boardCenterX - (ctx.measureText(subtitle).width / 2), boardCenterY + 24);
+  var subtitle = hasPurchasedThisShop ? "Waiting for opponent to choose..." : "Choose an upgrade above";
+  ctx.fillText(subtitle, overlayCenterX - (ctx.measureText(subtitle).width / 2), overlayCenterY + 24);
 }
 function renderCountdownOverlay(){
   var seconds = Math.max(1, countdownRemaining || 0);
