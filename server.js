@@ -28,6 +28,8 @@ const UPGRADE_DEFS = [
 const players = new Map();
 const waitingQueue = [];
 const matches = new Map();
+const leaderboard = new Map();
+const LEADERBOARD_LIMIT = 10;
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
@@ -236,6 +238,37 @@ function emitPlayers() {
   io.emit("players:update", buildPlayerList());
 }
 
+function updateLeaderboardEntry(name, points) {
+  if (typeof name !== "string" || !name.trim()) return;
+  const safePoints = Number.isFinite(points) ? Math.max(0, Math.floor(points)) : 0;
+  const existing = leaderboard.get(name);
+  if (!existing || safePoints > existing.bestPoints) {
+    leaderboard.set(name, {
+      name,
+      bestPoints: safePoints,
+      updatedAt: Date.now()
+    });
+  }
+}
+
+function buildLeaderboard() {
+  return Array.from(leaderboard.values())
+    .sort((a, b) => {
+      if (b.bestPoints !== a.bestPoints) return b.bestPoints - a.bestPoints;
+      return b.updatedAt - a.updatedAt;
+    })
+    .slice(0, LEADERBOARD_LIMIT)
+    .map((entry, index) => ({
+      rank: index + 1,
+      name: entry.name,
+      bestPoints: entry.bestPoints
+    }));
+}
+
+function emitLeaderboard() {
+  io.emit("leaderboard:update", buildLeaderboard());
+}
+
 function removeFromQueue(socketId) {
   const idx = waitingQueue.indexOf(socketId);
   if (idx >= 0) waitingQueue.splice(idx, 1);
@@ -254,6 +287,7 @@ function finishMatch(matchId, reason = "finished") {
   });
   matches.delete(matchId);
   emitPlayers();
+  emitLeaderboard();
 }
 
 function emitMatchState(match) {
@@ -274,6 +308,9 @@ function emitMatchState(match) {
   p2.lastLevel = match.states[p2Id].level;
   p2.lastLives = match.states[p2Id].lives;
 
+  updateLeaderboardEntry(p1.name, match.states[p1Id].points);
+  updateLeaderboardEntry(p2.name, match.states[p2Id].points);
+
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
     player: { id: p1.id, name: p1.name, ...match.states[p1Id], countdownRemaining },
@@ -289,6 +326,7 @@ function emitMatchState(match) {
     opponentRematchRequested: match.rematchVotes?.has(p1Id) || false
   });
   emitPlayers();
+  emitLeaderboard();
 }
 
 function updateGridSize(state) {
@@ -535,14 +573,31 @@ io.on("connection", (socket) => {
   });
 
   emitPlayers();
+  emitLeaderboard();
 
   socket.on("player:set-name", (incoming) => {
     const player = players.get(socket.id);
     if (!player) return;
+
+    const previousName = player.name;
     if (typeof incoming?.name === "string" && incoming.name.trim()) {
       player.name = incoming.name.trim().slice(0, 24);
     }
+
+    if (previousName !== player.name) {
+      const previousBest = leaderboard.get(previousName);
+      if (previousBest && !leaderboard.has(player.name)) {
+        leaderboard.set(player.name, {
+          ...previousBest,
+          name: player.name,
+          updatedAt: Date.now()
+        });
+      }
+    }
+
+    updateLeaderboardEntry(player.name, player.lastScore || 0);
     emitPlayers();
+    emitLeaderboard();
   });
 
   socket.on("matchmaking:join", () => {
@@ -601,6 +656,9 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     const player = players.get(socket.id);
+    if (player) {
+      updateLeaderboardEntry(player.name, player.lastScore || 0);
+    }
     removeFromQueue(socket.id);
 
     if (player?.matchId) {
@@ -617,6 +675,7 @@ io.on("connection", (socket) => {
 
     players.delete(socket.id);
     emitPlayers();
+    emitLeaderboard();
   });
 
   socket.on("shop:buy", (incoming) => {

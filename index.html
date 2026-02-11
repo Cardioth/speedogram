@@ -69,10 +69,22 @@
     line-height: 1.4;
   }
   #multiplayerPanel {
-    width: 400px;
+    width: 900px;
     margin: 12px auto 0;
     font-family: Arial, sans-serif;
     color: #0088FF;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .infoCard {
+    border: 1px solid #8cc6ff;
+    border-radius: 6px;
+    background: #f7fbff;
+    padding: 10px 12px;
+    width: 430px;
+    min-height: 74px;
   }
   #helpLinkWrap {
     width: 900px;
@@ -129,7 +141,8 @@
     margin: 0 0 6px;
     font-size: 16px;
   }
-  #multiplayerPlayers {
+  #multiplayerPlayers,
+  #leaderboardPlayers {
     font-size: 13px;
     line-height: 1.4;
   }
@@ -179,8 +192,14 @@
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
   </div>
   <div id="multiplayerPanel">
-    <h3>Live Players</h3>
-    <div id="multiplayerPlayers">Waiting for players…</div>
+    <div class="infoCard">
+      <h3>Live Players</h3>
+      <div id="multiplayerPlayers">Waiting for players…</div>
+    </div>
+    <div class="infoCard">
+      <h3>Leaderboard</h3>
+      <div id="leaderboardPlayers">No scores yet.</div>
+    </div>
   </div>
   <div id="helpLinkWrap">
     <a id="helpLink" href="#">how to play</a>
@@ -229,6 +248,7 @@ var winnerText = "";
 var socket = typeof io !== "undefined" ? io() : null;
 var myPlayerName = "Player" + Math.floor(Math.random()*1000);
 var latestRoster = [];
+var latestLeaderboard = [];
 var startButton = document.getElementById("startButton");
 var playerNameInput = document.getElementById("playerName");
 var matchStatusEl = document.getElementById("matchStatus");
@@ -275,6 +295,24 @@ function updateMultiplayerPanel(players){
   panel.innerHTML = latestRoster
     .map(function(player){
       return player.name + " — points " + (player.points || player.score || 0) + ", lvl " + player.level + ", lives " + player.lives + " (" + player.gameMode + ")";
+    })
+    .join("<br>");
+}
+
+
+function updateLeaderboardPanel(entries){
+  var panel = document.getElementById("leaderboardPlayers");
+  if(!panel){
+    return;
+  }
+  latestLeaderboard = entries || [];
+  if(!latestLeaderboard.length){
+    panel.textContent = "No scores yet.";
+    return;
+  }
+  panel.innerHTML = latestLeaderboard
+    .map(function(entry){
+      return "#" + entry.rank + " " + entry.name + " — best " + (entry.bestPoints || 0);
     })
     .join("<br>");
 }
@@ -423,10 +461,15 @@ function drawOpponentBoard(){
 function initMultiplayer(){
   if(!socket){
     updateMultiplayerPanel([]);
+    updateLeaderboardPanel([]);
     return;
   }
   socket.on("players:update", function(players){
     updateMultiplayerPanel(players);
+  });
+
+  socket.on("leaderboard:update", function(entries){
+    updateLeaderboardPanel(entries);
   });
 
   socket.on("match:ready", function(payload){
