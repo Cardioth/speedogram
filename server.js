@@ -344,7 +344,14 @@ function applyAction(state, x, y, button) {
     }
   }
 
-  if (state.lives <= 0) state.lives = 0;
+  if (state.lives <= 0) {
+    state.lives = 0;
+    state.points = 0;
+    state.score = 0;
+    state.roundPointsBonus = 0;
+    state.gameMode = "roundOver";
+    return;
+  }
 
   checkVictory(state);
 }
