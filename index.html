@@ -361,9 +361,22 @@ function renderClueText(){
   }
 }
 sceneObjects = [];
-function mouseMove(){
-    mouseX = event.clientX - can.offsetLeft;
-    mouseY = event.clientY - can.offsetTop;
+function getPointerPosition(evt){
+  var sourceEvent = evt;
+  if(evt && evt.touches && evt.touches.length){
+    sourceEvent = evt.touches[0];
+  } else if(evt && evt.changedTouches && evt.changedTouches.length){
+    sourceEvent = evt.changedTouches[0];
+  }
+  if(!sourceEvent){
+    return;
+  }
+  mouseX = sourceEvent.clientX - can.offsetLeft;
+  mouseY = sourceEvent.clientY - can.offsetTop;
+}
+
+function mouseMove(evt){
+    getPointerPosition(evt);
 }
 function gameOverScreen(){
     if(lives == 0){
@@ -446,19 +459,42 @@ function actionCell(){
 		}
 	}
 }
-function mouseDown(){
+function mouseDown(evt){
+	getPointerPosition(evt);
 	mouseState = "down";
-	mouseButton = event.button;
+	mouseButton = typeof evt.button === "number" ? evt.button : 0;
 }
-function mouseUp(){
+function mouseUp(evt){
+	getPointerPosition(evt);
 	mouseState = "up";
-	mouseButton = event.button;
+	mouseButton = evt && typeof evt.button === "number" ? evt.button : 0;
   if(gameMode == "play"){
     checkVictory();
   }
 }
 var intervalID;
-function click(){
+function requestMatch(){
+  clearInterval(intervalID);
+  clearSceneObjects();
+  gameMode = "play";
+  timer = 0;
+  level = 0;
+  score = 0;
+  lives = totalLives;
+  timeLimit = timeLimitInit;
+  gridSize = gridSizeIntervals[0];
+  overallGridSize = gridSize*cellSize;
+  gridOffSetX = (canvasSize-overallGridSize/2)-170;
+  gridOffSetY = 120;
+  initGrid();
+  intervalID = setInterval(function(){
+    timer += 10;
+  },10);
+  sendPlayerUpdate();
+}
+
+function click(evt){
+  getPointerPosition(evt);
   if(gameMode == "menu"){
     if(hitTest("PlayButton")){
       requestMatch();
