@@ -5,45 +5,62 @@
   body {
     font-family: Arial, sans-serif;
   }
+  #appHeader {
+    width: 900px;
+    margin: 14px auto 4px;
+    text-align: center;
+    color: #0088FF;
+  }
+  #appTitle {
+    margin: 0;
+    font-size: 40px;
+    line-height: 1;
+    letter-spacing: 0.4px;
+  }
+  #appVersion {
+    margin-top: 4px;
+    font-size: 12px;
+  }
   #arena {
     width: 900px;
-    margin: 20px auto 0;
+    margin: 10px auto 0;
     display: flex;
     gap: 20px;
     align-items: flex-start;
     justify-content: center;
   }
-  #speedogram,
-  #opponentCanvas {
+  #speedogram {
     display: block;
   }
-  .boardWrap {
-    color: #0088FF;
-  }
-  .boardWrap h3 {
-    margin: 0 0 6px;
-  }
-  #opponentCanvas {
-    border: 1px solid #8cc6ff;
-    border-radius: 6px;
-  }
-  #multiplayerPanel {
-    width: 900px;
-    margin: 12px auto 0;
-    font-family: Arial, sans-serif;
-    color: #0088FF;
+  .hidden {
+    display: none !important;
   }
   #controls {
+    width: 900px;
+    margin: 18px auto 8px;
     display: flex;
     gap: 8px;
     align-items: center;
-    margin-bottom: 8px;
+    justify-content: center;
+    color: #0088FF;
   }
   #playerName {
     border: 1px solid #8cc6ff;
     border-radius: 4px;
     padding: 6px;
     min-width: 180px;
+  }
+  #startButton {
+    border: 1px solid #8cc6ff;
+    background: #f7fbff;
+    border-radius: 4px;
+    color: #0088FF;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  #startButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
   #nameStatus,
   #matchStatus,
@@ -67,7 +84,18 @@
   }
 </style>
 <body>
-  <canvas id="speedogram" width="400" height="400" >Hello</canvas>
+  <div id="appHeader">
+    <h1 id="appTitle">Speed-o-Gram</h1>
+    <div id="appVersion"></div>
+  </div>
+  <div id="controls" class="matchmakingUI">
+    <input id="playerName" maxlength="24" placeholder="Player name" />
+    <button id="startButton">Start</button>
+  </div>
+  <div id="matchStatus" class="matchmakingUI" style="text-align:center;color:#0088FF;font-size:13px;">Enter your name and click Start.</div>
+    <div id="arena">
+    <canvas id="speedogram" width="900" height="440">Hello</canvas>
+  </div>
   <div id="multiplayerPanel">
     <h3>Live Players</h3>
     <div id="multiplayerPlayers">Waiting for players…</div>
@@ -88,7 +116,7 @@ var gridSizeIntervals = [3,3,3,4,4,4,5,5,5,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,9,9,1
 var cellSize = 22;
 var gridBoundaryMargin = 76;
 var overallGridSize = gridSize*cellSize;
-var gridOffSetX = (canvasSize-overallGridSize/2)-170;
+var gridOffSetX = 120;
 var gridOffSetY = 120;
 var mouseState = "up";
 var mouseButton;
@@ -102,6 +130,15 @@ var score = 0;
 var socket = typeof io !== "undefined" ? io() : null;
 var myPlayerName = "Player" + Math.floor(Math.random()*1000);
 var latestRoster = [];
+var startButton = document.getElementById("startButton");
+var playerNameInput = document.getElementById("playerName");
+var matchStatusEl = document.getElementById("matchStatus");
+var opponentState = null;
+var appVersionEl = document.getElementById("appVersion");
+var sharedTimeRemaining = "--";
+var opponentGridOffSetX = 560;
+var myDisplayName = "You";
+var opponentDisplayName = "Opponent";
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -124,13 +161,91 @@ function sendPlayerUpdate(){
   if(!socket){
     return;
   }
-  socket.emit("player:update", {
-    name: myPlayerName,
-    score: score,
-    level: level,
-    lives: lives,
-    gameMode: gameMode
-  });
+  socket.emit("player:set-name", { name: myPlayerName });
+}
+
+function setMatchStatus(text){
+  if(matchStatusEl){
+    matchStatusEl.textContent = text;
+  }
+}
+
+
+function setMatchmakingVisible(visible){
+  var elements = document.querySelectorAll(".matchmakingUI");
+  for(var i = 0; i < elements.length; i++){
+    elements[i].classList.toggle("hidden", !visible);
+  }
+}
+
+function updateSharedClock(currentTimer, limit){
+  if(!Number.isFinite(currentTimer) || !Number.isFinite(limit) || limit <= 0){
+    return;
+  }
+  sharedTimeRemaining = Math.max(0, Math.ceil((limit - currentTimer) / 100));
+}
+
+
+function drawOpponentBoard(){
+  if(!opponentState){
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#0088FF";
+    ctx.fillText("Waiting for opponent board...", opponentGridOffSetX + 40, 200);
+    return;
+  }
+
+  var opGridSize = opponentState.gridSize || 3;
+  var opOverallGridSize = opGridSize * cellSize;
+  var opGridOffSetY = 120;
+
+  ctx.globalAlpha = 0.1;
+  ctx.fillStyle = "#0088FF";
+  ctx.roundRect(opponentGridOffSetX-gridBoundaryMargin,opGridOffSetY-gridBoundaryMargin,opOverallGridSize+(gridBoundaryMargin+15),opOverallGridSize+(gridBoundaryMargin+15), 5,true,false);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#0088FF";
+  ctx.lineWidth = .75;
+  ctx.roundRect(opponentGridOffSetX-gridBoundaryMargin,opGridOffSetY-gridBoundaryMargin,opOverallGridSize+(gridBoundaryMargin+15),opOverallGridSize+(gridBoundaryMargin+15), 5,false,true);
+
+  var X = opponentState.Xcounters || [];
+  var Y = opponentState.Ycounters || [];
+  for (var counts in X){
+    for(var seg in X[counts]){
+      ctx.font = "11px Arial";
+      ctx.fillStyle = "#0088FF";
+      ctx.fillText(X[counts][X[counts].length-seg-1], opponentGridOffSetX+(cellSize/4)+(counts*cellSize), opGridOffSetY-10-(seg*15));
+    }
+  }
+  for (var rowCounts in Y){
+    for(var rowSeg in Y[rowCounts]){
+      ctx.font = "11px Arial";
+      ctx.fillStyle = "#0088FF";
+      ctx.fillText(Y[rowCounts][Y[rowCounts].length-rowSeg-1], opponentGridOffSetX-(rowSeg*15)-14, opGridOffSetY+6+(cellSize/4)+(rowCounts*cellSize));
+    }
+  }
+
+  var guesses = opponentState.gridGuesses || [];
+  for(var i = 0; i<opGridSize;i++){
+    for(var j = 0; j<opGridSize;j++){
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#0088FF";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,true);
+      if(guesses[i] && guesses[i][j] === 1){
+        ctx.fillStyle = "#0088FF";
+        ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,false);
+      }
+    }
+  }
+
+  var opLives = opponentState.lives || 0;
+  for(var livesCount = 0;livesCount<opLives;livesCount++){
+    renderOpponentHeart((livesCount*25)+opponentGridOffSetX+10-(opLives*12.5),opGridOffSetY+opOverallGridSize+25);
+  }
+
+  var opScore = opponentState.score || 0;
+  for(var star = 0; star < opScore; star++){
+    renderStar(opponentGridOffSetX-42,60+(star%5*20));
+  }
 }
 
 function initMultiplayer(){
@@ -142,9 +257,45 @@ function initMultiplayer(){
     updateMultiplayerPanel(players);
   });
 
-  setInterval(function(){
-    sendPlayerUpdate();
-  }, 250);
+  socket.on("match:ready", function(payload){
+    gameMode = "waiting";
+    setMatchStatus("Match found! Starting vs " + payload.opponentName + "...");
+  });
+
+  socket.on("match:update", function(payload){
+    applyServerState(payload.player);
+    opponentState = payload.opponent;
+    myDisplayName = (payload.player && payload.player.name) ? payload.player.name : myPlayerName;
+    opponentDisplayName = (payload.opponent && payload.opponent.name) ? payload.opponent.name : "Opponent";
+    drawOpponentBoard();
+    if(gameMode === "waiting" || gameMode === "menu"){
+      gameMode = "play";
+      setMatchStatus("Playing against " + (payload.opponent && payload.opponent.name ? payload.opponent.name : "opponent"));
+      startButton.disabled = true;
+      startButton.textContent = "In Match";
+      setMatchmakingVisible(false);
+    }
+    if(payload.player && payload.player.gameMode === "gameOver"){
+      gameMode = "gameOver";
+      setMatchStatus("Game over. Click Start to queue for a new match.");
+      startButton.disabled = false;
+      startButton.textContent = "Start";
+      setMatchmakingVisible(true);
+    }
+  });
+
+  socket.on("match:ended", function(payload){
+    gameMode = "menu";
+    opponentState = null;
+    opponentDisplayName = "Opponent";
+    myDisplayName = myPlayerName;
+    drawOpponentBoard();
+    startButton.disabled = false;
+    startButton.textContent = "Start";
+    setMatchmakingVisible(true);
+    sharedTimeRemaining = "--";
+    setMatchStatus(payload.reason || "Match ended.");
+  });
 }
 
 var grid = [];
@@ -166,35 +317,54 @@ var mouseY;
 
 function init(){
   gameMode = "menu";
-  createObject(200,130,100,30,"PlayButton","Button","Start");
+  if(appVersionEl){
+    appVersionEl.textContent = versionNumber;
+  }
+  myDisplayName = myPlayerName;
+  drawOpponentBoard();
+  setMatchmakingVisible(true);
   enterFrame();
 }
 
+function renderBoardHeaders(){
+  var myBoardCenterX = gridOffSetX + (overallGridSize/2);
+  var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
+  var opponentBoardCenterX = opponentGridOffSetX + ((opponentGridSize * cellSize)/2);
+
+  ctx.font = "20px Arial";
+  ctx.fillStyle = "#0088FF";
+
+  var myName = myDisplayName || "You";
+  var opponentName = opponentDisplayName || "Opponent";
+
+  ctx.fillText(myName, myBoardCenterX - (ctx.measureText(myName).width / 2), 34);
+  ctx.fillText(opponentName, opponentBoardCenterX - (ctx.measureText(opponentName).width / 2), 34);
+}
+
 function enterFrame(){
-  ctx.clearRect(0,0,canvasSize,canvasSize);
-  renderTitle();
-  renderVersionNumber();
-  if(gameMode == "play"){
-    actionCell();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  renderBoardHeaders();
+
+  renderStopwatch(840,96);
+  renderStopwatchHand(840,96,timer || 0);
+  ctx.font = "14px Arial";
+  ctx.fillStyle = "#0088FF";
+  ctx.fillText("Time: " + sharedTimeRemaining, 790, 142);
+
+  if(gameMode == "play" || gameMode == "gameOver"){
     renderBackdrop();
     renderCells();
     renderClueText();
-    renderMouseOver();
     renderHealth();
-    renderStopwatch(285+overallGridSize/2,90);
-    renderStopwatchHand(285+overallGridSize/2,90,timer);
-    renderStopwatchTimer(278+overallGridSize/2,136,timer);
     renderScore();
-    if(timer>timeLimit){
-      clearInterval(intervalID);
-      gameMode = "gameOver";
-      createObject(200,170,100,30,"RestartButton","Button","Restart");
-    }
+    drawOpponentBoard();
+  }
+  if(gameMode == "play"){
+    renderMouseOver();
   }
   if(gameMode == "gameOver"){
     renderGameOver();
   }
-  renderSceneObjects();
   window.requestAnimationFrame(enterFrame);
 }
 function renderGameOver(){
@@ -307,6 +477,14 @@ function renderHeart(x,y){
   ctx.translate(-x,-y);
 }
 
+function renderOpponentHeart(x,y){
+  let p = new Path2D('M 24.1 7.05 Q 24.1 4.65 22.4 2.95 21.4 1.95 20.1 1.55 19.25 1.25 18.3 1.25 15.9 1.25 14.2 2.95 12.55 4.6 12.5 7 12.45 4.6 10.8 2.95 9.15 1.3 6.85 1.25 6.8 1.25 6.7 1.25 4.3 1.25 2.6 2.95 0.9 4.65 0.9 7.05 0.9 9 2.15 10.65 L 12.5 23.8 22.3 11.75 Q 24.1 9.45 24.1 7.05 Z');
+  ctx.translate(x,y);
+  ctx.fillStyle = "#FF5555";
+  ctx.fill(p);
+  ctx.translate(-x,-y);
+}
+
 can.oncontextmenu = function (e) {
     e.preventDefault();
 };
@@ -333,16 +511,6 @@ function renderBackdrop(){
   ctx.strokeStyle = "#0088FF";
   ctx.lineWidth = .75;
   ctx.roundRect(gridOffSetX-gridBoundaryMargin,gridOffSetY-gridBoundaryMargin,overallGridSize+(gridBoundaryMargin+15),overallGridSize+(gridBoundaryMargin+15), 5,false,true);
-}
-function renderTitle(){
-  ctx.font = "24px Arial";
-  ctx.fillStyle = "#0088FF";
-  ctx.fillText("Speed-o-Gram",canvasSize/2-80,30);
-}
-function renderVersionNumber(){
-  ctx.font = "10px Arial";
-  ctx.fillStyle = "#0088FF";
-  ctx.fillText(versionNumber,canvasSize-30,10);
 }
 function renderClueText(){
   for (var counts in Xcounters){
@@ -380,131 +548,88 @@ function mouseMove(evt){
 }
 function gameOverScreen(){
     if(lives == 0){
-      clearInterval(intervalID);
       gameMode = "gameOver";
-      createObject(200,170,100,30,"RestartButton","Button","Restart");
     }
 }
 
 function checkVictory(){
-  var totalGridSize = gridSize*gridSize;
-  var totalGuesses = 0;
-  for(var i = 0; i<gridSize;i++){
-    for(var j = 0; j<gridSize;j++){
-      if(gridGuesses[i][j] == 1){
-        totalGuesses ++;
-      }
-    }
-  }
-  if(totalGuesses == totalGridSize){
-    score ++;
-    level ++;
-    timeLimit += timeIncrement;
-    updateGridSize()
-  	initGrid();
-    mouseState = "up";
-    mouseButton = 0;
-  }
+  return;
 }
 function updateGridSize(){
   gridSize = [gridSizeIntervals[level]];
   overallGridSize = gridSize*cellSize;
-  gridOffSetX = (canvasSize-overallGridSize/2)-170;
+  gridOffSetX = 120;
   gridOffSetY = 120;
 }
 function actionCell(){
-	if(mouseState == "down"){
-		for(var i = 0; i<gridSize;i++){
-			for(var j = 0; j<gridSize;j++){
-				if(mouseX > i*cellSize+gridOffSetX && mouseX < i*cellSize+cellSize+gridOffSetX && mouseY > j*cellSize+gridOffSetY && mouseY < j*cellSize+cellSize+gridOffSetY){
-					if(grid[i][j] == 1 && gridGuesses[i][j] != 1){
-					  gridGuesses[i][j] = 1;
-					  if(mouseButton != 0){
-						lives --;
-						gameOverScreen();
-					  } else {
-						//adds up number of correct guesses
-						var columnGuesses = 0;
-						var rowGuesses = 0;
-						for(var k = 0; k<gridSize;k++){
-							if(grid[i][k] == 1 && gridGuesses[i][k] == 1){
-								columnGuesses ++;
-							}
-							if(grid[k][j] == 1 && gridGuesses[k][j] == 1){
-								rowGuesses ++;
-							}
-						}
-						//checks if number of correct guesses is the same as the total number of filled cells for that row
-						if(columnGuesses == columnsTotal[i]){
-							for(var l = 0; l<gridSize;l++){
-								gridGuesses[i][l] = 1;
-							}
-						}
-						if(rowGuesses == rowsTotal[j]){
-							for(var m = 0; m<gridSize;m++){
-								gridGuesses[m][j] = 1;
-							}
-						}
-					  }
-					}
-					if(grid[i][j] == 0 && gridGuesses[i][j] != 1) {
-					  gridGuesses[i][j] = 1;
-					  if(mouseButton != 2){
-						lives --;
-						gameOverScreen();
-					  }
-					}
-				}
-			}
-		}
-	}
+  return;
 }
+function sendActionFromPointer(button){
+  if(gameMode != "play" || !socket){
+    return;
+  }
+  for(var i = 0; i<gridSize;i++){
+    for(var j = 0; j<gridSize;j++){
+      if(mouseX > i*cellSize+gridOffSetX && mouseX < i*cellSize+cellSize+gridOffSetX && mouseY > j*cellSize+gridOffSetY && mouseY < j*cellSize+cellSize+gridOffSetY){
+        socket.emit("game:action", { x: i, y: j, button: button });
+        return;
+      }
+    }
+  }
+}
+
 function mouseDown(evt){
 	getPointerPosition(evt);
 	mouseState = "down";
 	mouseButton = typeof evt.button === "number" ? evt.button : 0;
+  sendActionFromPointer(mouseButton);
 }
 function mouseUp(evt){
 	getPointerPosition(evt);
 	mouseState = "up";
 	mouseButton = evt && typeof evt.button === "number" ? evt.button : 0;
-  if(gameMode == "play"){
-    checkVictory();
-  }
 }
 var intervalID;
 function requestMatch(){
-  clearInterval(intervalID);
-  clearSceneObjects();
-  gameMode = "play";
-  timer = 0;
-  level = 0;
-  score = 0;
-  lives = totalLives;
-  timeLimit = timeLimitInit;
-  gridSize = gridSizeIntervals[0];
-  overallGridSize = gridSize*cellSize;
-  gridOffSetX = (canvasSize-overallGridSize/2)-170;
-  gridOffSetY = 120;
-  initGrid();
-  intervalID = setInterval(function(){
-    timer += 10;
-  },10);
-  sendPlayerUpdate();
+  if(!socket){
+    setMatchStatus("No server connection.");
+    return;
+  }
+  gameMode = "waiting";
+  setMatchStatus("Waiting for an opponent...");
+  startButton.disabled = true;
+  startButton.textContent = "Waiting...";
+  socket.emit("matchmaking:join");
 }
 
 function click(evt){
   getPointerPosition(evt);
-  if(gameMode == "menu"){
-    if(hitTest("PlayButton")){
-      requestMatch();
-    }
+  if((evt.detail === 0 || mouseButton === 0) && gameMode == "play"){
+    sendActionFromPointer(0);
   }
-  if(gameMode == "gameOver"){
-    if(hitTest("RestartButton")){
-      requestMatch();
-    }
+}
+
+function applyServerState(state){
+  if(!state){
+    return;
   }
+  gameMode = state.gameMode;
+  timer = state.timer;
+  level = state.level;
+  score = state.score;
+  lives = state.lives;
+  timeLimit = state.timeLimit;
+  updateSharedClock(timer, timeLimit);
+  gridSize = state.gridSize;
+  grid = state.grid;
+  gridGuesses = state.gridGuesses;
+  Xcounters = state.Xcounters;
+  Ycounters = state.Ycounters;
+  columnsTotal = state.columnsTotal;
+  rowsTotal = state.rowsTotal;
+  overallGridSize = gridSize*cellSize;
+  gridOffSetX = 120;
+  gridOffSetY = 120;
 }
 
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius, fill, stroke) {
@@ -631,6 +756,33 @@ function renderCells(){
     }
   }
 }
+
+
+startButton.addEventListener("click", function(){
+  var requestedName = playerNameInput.value && playerNameInput.value.trim();
+  if(requestedName){
+    myPlayerName = requestedName.slice(0,24);
+    myDisplayName = myPlayerName;
+  }
+  sendPlayerUpdate();
+  if(gameMode === "gameOver" && socket){
+    socket.emit("game:restart");
+    startButton.disabled = true;
+    startButton.textContent = "Restarting...";
+    setMatchStatus("Restart requested...");
+    return;
+  }
+  requestMatch();
+});
+
+playerNameInput.addEventListener("change", function(){
+  var requestedName = playerNameInput.value && playerNameInput.value.trim();
+  if(requestedName){
+    myPlayerName = requestedName.slice(0,24);
+    myDisplayName = myPlayerName;
+    sendPlayerUpdate();
+  }
+});
 
 init();
 initMultiplayer();
