@@ -132,6 +132,7 @@ function configureRoundState(state) {
   const baseTime = TIME_LIMIT_INIT + (state.startingTimeBonusMs || 0) - incomingPenalty;
   state.timeLimit = Math.max(3000, baseTime);
 
+  state.puzzleId = (state.puzzleId || 0) + 1;
   Object.assign(state, makePuzzle(state.gridSize));
   state.bombCell = null;
   state.bombActive = Boolean(state.incomingBombNextRound);
@@ -168,6 +169,7 @@ function makePlayerState(initialMode = "play") {
     gameMode: initialMode,
     timer: 0,
     timeLimit: TIME_LIMIT_INIT,
+    puzzleId: 1,
     gridSize,
     round: 1,
     perSolveTimeBonusMs: 0,
@@ -196,6 +198,7 @@ function toPublicState(state) {
     timer: state.timer,
     timeLimit: state.timeLimit,
     round: state.round,
+    puzzleId: state.puzzleId,
     shopOptions: state.shopOptions,
     hasPurchasedThisShop: state.hasPurchasedThisShop,
     winnerText: state.winnerText,
@@ -299,6 +302,7 @@ function checkVictory(state) {
     state.level += 1;
     state.timeLimit += TIME_INCREMENT + (state.perSolveTimeBonusMs || 0);
     updateGridSize(state);
+    state.puzzleId = (state.puzzleId || 0) + 1;
     Object.assign(state, makePuzzle(state.gridSize));
     revealInitialCells(state);
   }

@@ -240,6 +240,7 @@ var myDisplayName = "You";
 var opponentDisplayName = "Opponent";
 var pendingPredictions = [];
 var MAX_PENDING_PREDICTIONS = 64;
+var currentPuzzleId = 0;
 var HEART_ICON_WIDTH = 24;
 var HEART_SPACING = 25;
 var lastDraggedCell = null;
@@ -807,6 +808,9 @@ function reconcilePendingPredictions(){
   var remaining = [];
   for(var i = 0; i < pendingPredictions.length; i++){
     var action = pendingPredictions[i];
+    if(action.puzzleId !== currentPuzzleId){
+      continue;
+    }
     if(!gridGuesses || !gridGuesses[action.x]){
       continue;
     }
@@ -879,7 +883,7 @@ function sendActionFromPointerDrag(button){
           return;
         }
         lastDraggedCell = { x: i, y: j, button: button };
-        pendingPredictions.push({ x: i, y: j, button: button, createdAt: Date.now() });
+        pendingPredictions.push({ x: i, y: j, button: button, puzzleId: currentPuzzleId, createdAt: Date.now() });
         prunePendingPredictions();
         applyLocalPrediction(i, j, button);
         if(socket){
@@ -930,6 +934,13 @@ function applyServerState(state){
   if(!state){
     return;
   }
+  var nextPuzzleId = Number.isFinite(state.puzzleId) ? state.puzzleId : 0;
+  if(nextPuzzleId !== currentPuzzleId){
+    pendingPredictions = [];
+    lastDraggedCell = null;
+  }
+  currentPuzzleId = nextPuzzleId;
+
   gameMode = state.gameMode;
   countdownRemaining = Number.isFinite(state.countdownRemaining) ? state.countdownRemaining : 0;
   timer = state.timer;
