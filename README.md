@@ -13,8 +13,12 @@ Use a **Node.js Repl** and keep these files in the project root:
 This repo is configured so Replit runs:
 
 ```bash
-npm install && npm start
+npm start
 ```
+
+For **Deployments / Publish**, `.replit` also defines:
+- build command: `npm install`
+- run command: `npm start`
 
 The server binds to `0.0.0.0:$PORT` (Replit-friendly) and serves:
 - `/` -> `index.html`

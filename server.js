@@ -8,6 +8,8 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || "0.0.0.0";
+const STATIC_DIR = path.join(__dirname);
 const TOTAL_LIVES = 3;
 const GRID_SIZE_INTERVALS = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 9, 9, 10, 10];
 const TIME_LIMIT_INIT = 12000;
@@ -27,7 +29,15 @@ const players = new Map();
 const waitingQueue = [];
 const matches = new Map();
 
-app.use(express.static(path.join(__dirname)));
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(STATIC_DIR, "index.html"));
+});
+
+app.use(express.static(STATIC_DIR, { index: false }));
 
 function makePuzzle(gridSize) {
   const grid = [];
@@ -619,6 +629,7 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Speed-o-Gram server listening on ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
+  console.log(`Serving static files from ${STATIC_DIR}`);
 });
