@@ -10,7 +10,7 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 const TOTAL_LIVES = 3;
 const GRID_SIZE_INTERVALS = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 9, 9, 10, 10];
-const TIME_LIMIT_INIT = 6000;
+const TIME_LIMIT_INIT = 12000;
 const TIME_INCREMENT = 700;
 
 const players = new Map();
@@ -104,6 +104,7 @@ function toPublicState(state) {
     timer: state.timer,
     timeLimit: state.timeLimit,
     gridSize: state.gridSize,
+    grid: state.grid,
     gridGuesses: state.gridGuesses,
     Xcounters: state.Xcounters,
     Ycounters: state.Ycounters
