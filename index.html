@@ -74,6 +74,57 @@
     font-family: Arial, sans-serif;
     color: #0088FF;
   }
+  #helpLinkWrap {
+    width: 900px;
+    margin: 12px auto 0;
+    text-align: center;
+  }
+  #helpLink {
+    color: #0088FF;
+    font-size: 14px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  #helpModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 40, 80, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  #helpModal.hidden {
+    display: none;
+  }
+  #helpModalCard {
+    background: #FFFFFF;
+    border: 1px solid #8cc6ff;
+    border-radius: 8px;
+    width: min(640px, calc(100vw - 40px));
+    padding: 18px 20px;
+    box-shadow: 0 8px 24px rgba(0, 60, 120, 0.25);
+    color: #005fa8;
+  }
+  #helpModalCard h3 {
+    margin: 0 0 10px;
+    color: #0088FF;
+  }
+  #helpModalText {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+  #closeHelpButton {
+    margin-top: 14px;
+    border: 1px solid #8cc6ff;
+    background: #f7fbff;
+    border-radius: 4px;
+    color: #0088FF;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
   #multiplayerPanel h3 {
     margin: 0 0 6px;
     font-size: 16px;
@@ -99,6 +150,20 @@
   <div id="multiplayerPanel">
     <h3>Live Players</h3>
     <div id="multiplayerPlayers">Waiting for players…</div>
+  </div>
+  <div id="helpLinkWrap">
+    <a id="helpLink" href="#">how to play</a>
+  </div>
+
+  <div id="helpModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <div id="helpModalCard">
+      <h3 id="helpModalTitle">How to Play</h3>
+      <p id="helpModalText">The rules are simple.
+
+You have a grid of squares, which must be either filled in black or marked with X. Beside each row of the grid are listed the lengths of the runs of black squares on that row. Above each column are listed the lengths of the runs of black squares in that column. Your aim is to find all black squares.
+Left click on a square to make it black. Right click to mark with X. Click and drag to mark more than one square.</p>
+      <button id="closeHelpButton" type="button">Close</button>
+    </div>
   </div>
 </body>
 
@@ -145,6 +210,16 @@ var HEART_ICON_WIDTH = 24;
 var HEART_SPACING = 25;
 var lastDraggedCell = null;
 var countdownRemaining = 0;
+var helpLink = document.getElementById("helpLink");
+var helpModal = document.getElementById("helpModal");
+var closeHelpButton = document.getElementById("closeHelpButton");
+
+function setHelpModalVisible(visible){
+  if(!helpModal){
+    return;
+  }
+  helpModal.classList.toggle("hidden", !visible);
+}
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -941,6 +1016,33 @@ playerNameInput.addEventListener("change", function(){
     myPlayerName = requestedName.slice(0,24);
     myDisplayName = myPlayerName;
     sendPlayerUpdate();
+  }
+});
+
+if(helpLink){
+  helpLink.addEventListener("click", function(evt){
+    evt.preventDefault();
+    setHelpModalVisible(true);
+  });
+}
+
+if(closeHelpButton){
+  closeHelpButton.addEventListener("click", function(){
+    setHelpModalVisible(false);
+  });
+}
+
+if(helpModal){
+  helpModal.addEventListener("click", function(evt){
+    if(evt.target === helpModal){
+      setHelpModalVisible(false);
+    }
+  });
+}
+
+document.addEventListener("keydown", function(evt){
+  if(evt.key === "Escape"){
+    setHelpModalVisible(false);
   }
 });
 
