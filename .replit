@@ -1,6 +1,11 @@
 entrypoint = "server.js"
 modules = ["nodejs-20"]
-run = "npm install && npm start"
+run = "npm start"
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["sh", "-c", "npm install"]
+run = ["sh", "-c", "npm start"]
 
 [nix]
 channel = "stable-24_05"
