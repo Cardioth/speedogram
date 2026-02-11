@@ -128,6 +128,77 @@
     line-height: 1.5;
     white-space: pre-line;
   }
+  #helpDemo {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid #d6ebff;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+  }
+  #helpDemoTitle {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #0077dc;
+  }
+  #helpDemoBoard {
+    width: 168px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 30px repeat(3, 34px);
+    grid-template-rows: 30px repeat(3, 34px);
+    gap: 2px;
+    align-items: center;
+    justify-items: center;
+  }
+  .demoAxisLabel {
+    font-size: 11px;
+    color: #2c8fe3;
+    font-weight: bold;
+  }
+  .demoCell {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #8cc6ff;
+    border-radius: 6px;
+    background: #ffffff;
+    position: relative;
+    transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+  }
+  .demoCell::before,
+  .demoCell::after {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 15px;
+    width: 18px;
+    height: 2px;
+    background: #8aa8c8;
+    opacity: 0;
+    transition: opacity 160ms ease;
+    border-radius: 2px;
+  }
+  .demoCell::before {
+    transform: rotate(45deg);
+  }
+  .demoCell::after {
+    transform: rotate(-45deg);
+  }
+  .demoCell.isFilled {
+    background: #0088FF;
+    border-color: #0077dc;
+    transform: scale(0.96);
+  }
+  .demoCell.isMarked::before,
+  .demoCell.isMarked::after {
+    opacity: 1;
+  }
+  #helpDemoCaption {
+    margin: 10px 0 0;
+    text-align: center;
+    font-size: 12px;
+    color: #297fc7;
+  }
   #closeHelpButton {
     margin-top: 14px;
     border: 1px solid #8cc6ff;
@@ -212,6 +283,28 @@
 
 You have a grid of squares, which must be either filled in black or marked with X. Beside each row of the grid are listed the lengths of the runs of black squares on that row. Above each column are listed the lengths of the runs of black squares in that column. Your aim is to find all black squares.
 Left click on a square to make it black. Right click to mark with X. Click and drag to mark more than one square.</p>
+      <div id="helpDemo" aria-hidden="true">
+        <p id="helpDemoTitle">Example: watch this 3×3 puzzle being solved</p>
+        <div id="helpDemoBoard">
+          <span></span>
+          <span class="demoAxisLabel">2</span>
+          <span class="demoAxisLabel">1</span>
+          <span class="demoAxisLabel">1</span>
+          <span class="demoAxisLabel">2</span>
+          <div class="demoCell" data-demo-cell="0"></div>
+          <div class="demoCell" data-demo-cell="1"></div>
+          <div class="demoCell" data-demo-cell="2"></div>
+          <span class="demoAxisLabel">1</span>
+          <div class="demoCell" data-demo-cell="3"></div>
+          <div class="demoCell" data-demo-cell="4"></div>
+          <div class="demoCell" data-demo-cell="5"></div>
+          <span class="demoAxisLabel">1</span>
+          <div class="demoCell" data-demo-cell="6"></div>
+          <div class="demoCell" data-demo-cell="7"></div>
+          <div class="demoCell" data-demo-cell="8"></div>
+        </div>
+        <p id="helpDemoCaption">Blue squares are filled. Gray X marks ruled-out cells.</p>
+      </div>
       <button id="closeHelpButton" type="button">Close</button>
     </div>
   </div>
@@ -268,12 +361,69 @@ var countdownRemaining = 0;
 var helpLink = document.getElementById("helpLink");
 var helpModal = document.getElementById("helpModal");
 var closeHelpButton = document.getElementById("closeHelpButton");
+var helpDemoCells = Array.prototype.slice.call(document.querySelectorAll("[data-demo-cell]"));
+var helpDemoTimer = null;
+var helpDemoStep = 0;
+var helpDemoFrames = [
+  { index: 0, state: "fill" },
+  { index: 1, state: "fill" },
+  { index: 2, state: "mark" },
+  { index: 3, state: "fill" },
+  { index: 4, state: "mark" },
+  { index: 5, state: "mark" },
+  { index: 6, state: "mark" },
+  { index: 7, state: "mark" },
+  { index: 8, state: "fill" },
+  { state: "pause" },
+  { state: "reset" }
+];
+
+function resetHelpDemoBoard(){
+  for(var i = 0; i < helpDemoCells.length; i++){
+    helpDemoCells[i].classList.remove("isFilled", "isMarked");
+  }
+}
+
+function playHelpDemoFrame(){
+  var frame = helpDemoFrames[helpDemoStep];
+  if(!frame){
+    helpDemoStep = 0;
+    return;
+  }
+  if(frame.state === "fill" && helpDemoCells[frame.index]){
+    helpDemoCells[frame.index].classList.remove("isMarked");
+    helpDemoCells[frame.index].classList.add("isFilled");
+  }
+  if(frame.state === "mark" && helpDemoCells[frame.index]){
+    helpDemoCells[frame.index].classList.remove("isFilled");
+    helpDemoCells[frame.index].classList.add("isMarked");
+  }
+  if(frame.state === "reset"){
+    resetHelpDemoBoard();
+  }
+  helpDemoStep = (helpDemoStep + 1) % helpDemoFrames.length;
+}
+
+function setHelpDemoRunning(shouldRun){
+  if(helpDemoTimer){
+    clearInterval(helpDemoTimer);
+    helpDemoTimer = null;
+  }
+  if(!shouldRun || !helpDemoCells.length){
+    return;
+  }
+  helpDemoStep = 0;
+  resetHelpDemoBoard();
+  playHelpDemoFrame();
+  helpDemoTimer = setInterval(playHelpDemoFrame, 520);
+}
 
 function setHelpModalVisible(visible){
   if(!helpModal){
     return;
   }
   helpModal.classList.toggle("hidden", !visible);
+  setHelpDemoRunning(visible);
 }
 var shopPanel = document.getElementById("shopPanel");
 var shopChoicesEl = document.getElementById("shopChoices");
