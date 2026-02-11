@@ -248,8 +248,9 @@ function drawOpponentBoard(){
   }
 
   var opScore = opponentState.score || 0;
+  var opponentScoreX = opponentGridOffSetX - gridBoundaryMargin - 22;
   for(var star = 0; star < opScore; star++){
-    renderStar(opponentGridOffSetX-42,60+(star%5*20));
+    renderStar(opponentScoreX,60+(star%5*20));
   }
 }
 
@@ -385,11 +386,10 @@ function enterFrame(){
   window.requestAnimationFrame(enterFrame);
 }
 function renderGameOver(){
-  var boardCenterX = gridOffSetX + (overallGridSize/2);
   var gameOverText = "Final Score: " + score;
-  ctx.font = "16px Arial";
+  ctx.font = "14px Arial";
   ctx.fillStyle = "#0088FF";
-  ctx.fillText(gameOverText, boardCenterX-(ctx.measureText(gameOverText).width/2), gridOffSetY-52);
+  ctx.fillText(gameOverText, gridOffSetX-gridBoundaryMargin, 24);
 }
 
 function hitTest(object){
@@ -455,8 +455,9 @@ function renderStopwatchHand(x,y,time){
   ctx.restore();
 }
 function renderScore(){
+  var myScoreX = gridOffSetX-gridBoundaryMargin-22;
   for(var i=0;i<score;i++){
-    renderStar(138-overallGridSize/2,60+(i%5*20));
+    renderStar(myScoreX,60+(i%5*20));
   }
 }
 function renderStar(x,y){
