@@ -260,6 +260,7 @@ var shopChoicesEl = document.getElementById("shopChoices");
 var shopTitleEl = document.getElementById("shopTitle");
 var shopOptions = [];
 var hasPurchasedThisShop = false;
+var lastShopRenderKey = "";
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -308,6 +309,18 @@ function renderShopChoices(){
       shopChoicesEl.appendChild(button);
     })(shopOptions[i]);
   }
+}
+
+function updateShopChoicesIfNeeded(){
+  var optionsKey = (shopOptions || []).map(function(option){
+    return option.id;
+  }).join("|");
+  var nextRenderKey = optionsKey + "::" + (hasPurchasedThisShop ? "1" : "0");
+  if(nextRenderKey === lastShopRenderKey){
+    return;
+  }
+  lastShopRenderKey = nextRenderKey;
+  renderShopChoices();
 }
 
 function sendPlayerUpdate(){
@@ -962,19 +975,22 @@ function applyServerState(state){
 
   shopOptions = state.shopOptions || [];
   hasPurchasedThisShop = !!state.hasPurchasedThisShop;
-  renderShopChoices();
+  updateShopChoicesIfNeeded();
 
   reconcilePendingPredictions();
 
   if(gameMode === "countdown") {
     setMatchStatus("Match starts in " + Math.max(1, countdownRemaining) + "...");
     setShopVisible(false);
+    lastShopRenderKey = "";
   } else if(gameMode === "play") {
     setMatchStatus("Round " + currentRound + "/6: Playing against " + (opponentDisplayName || "opponent"));
     setShopVisible(false);
+    lastShopRenderKey = "";
   } else if(gameMode === "roundOver") {
     setMatchStatus("Round " + currentRound + " complete. Waiting for opponent...");
     setShopVisible(false);
+    lastShopRenderKey = "";
   } else if(gameMode === "shop") {
     setMatchStatus("Shop: choose 1 upgrade for next round.");
     if(shopTitleEl){
@@ -984,6 +1000,7 @@ function applyServerState(state){
   } else if(gameMode === "gameOver") {
     setMatchStatus(winnerText || "Game over. Click Start to request a rematch.");
     setShopVisible(false);
+    lastShopRenderKey = "";
   }
 
   if(gameMode !== "play") {
