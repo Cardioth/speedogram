@@ -174,10 +174,40 @@
     color: #9dd6ff;
   }
   #helpModalText {
-    margin: 0;
     font-size: 14px;
-    line-height: 1.5;
-    white-space: pre-line;
+    line-height: 1.55;
+    color: #d7eaff;
+  }
+  .helpSection {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border: 1px solid rgba(125, 180, 255, 0.28);
+    border-radius: 10px;
+    background: rgba(13, 23, 53, 0.55);
+  }
+  .helpSection:first-child {
+    margin-top: 0;
+  }
+  .helpSectionTitle {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #8fd0ff;
+  }
+  .helpSection ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .helpSection li {
+    margin-bottom: 6px;
+  }
+  .helpSection li:last-child {
+    margin-bottom: 0;
+  }
+  .helpLabel {
+    color: #ffffff;
+    font-weight: 600;
   }
   #helpDemo {
     margin-top: 14px;
@@ -361,10 +391,32 @@
         </div>
         <p id="helpDemoCaption">Blue squares are filled. Gray X marks ruled-out cells.</p>
       </div>
-      <p id="helpModalText">The rules are simple.
-
-You have a grid of squares, which must be either filled in black or marked with X. Beside each row of the grid are listed the lengths of the runs of black squares on that row. Above each column are listed the lengths of the runs of black squares in that column. Your aim is to find all black squares.
-Left click on a square to make it black. Right click to mark with X. Click and drag to mark more than one square.</p>
+      <div id="helpModalText">
+        <section class="helpSection">
+          <h4 class="helpSectionTitle">⚡ QUICK START</h4>
+          <ul>
+            <li>Clear the board faster than your opponents!</li>
+            <li><span class="helpLabel">Numbers:</span> Show the size of Black Blocks in that row/column.</li>
+            <li><span class="helpLabel">Multiple Numbers:</span> (e.g., 2 4) means a gap of at least one space between blocks.</li>
+            <li><span class="helpLabel">The Win:</span> Fill every Black Square to clear the board.</li>
+          </ul>
+        </section>
+        <section class="helpSection">
+          <h4 class="helpSectionTitle">⌨️ CONTROLS</h4>
+          <ul>
+            <li><span class="helpLabel">Left Click:</span> Fill Black</li>
+            <li><span class="helpLabel">Right Click:</span> Mark X (Use these! Don't guess.)</li>
+            <li><span class="helpLabel">Click + Drag:</span> Paint multiple squares instantly.</li>
+          </ul>
+        </section>
+        <section class="helpSection">
+          <h4 class="helpSectionTitle">🚀 FAST-PLAY TIPS</h4>
+          <ul>
+            <li><span class="helpLabel">Total Fill:</span> If the numbers add up to the grid size (including gaps), it's a freebie. Fill it.</li>
+            <li><span class="helpLabel">Don't Guess:</span> One wrong click in multiplayer is a death sentence. Use X to narrow it down.</li>
+          </ul>
+        </section>
+      </div>
       <button id="closeHelpButton" type="button">Close</button>
     </div>
   </div>
