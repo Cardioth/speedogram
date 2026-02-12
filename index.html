@@ -655,10 +655,13 @@ function updateBoardLayout(){
   var opponentGridSizeLayout = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
   var opponentOverallGridSize = opponentGridSizeLayout * cellSize;
   var timerCenterX = canvas.width / 2;
-  var boardGap = 170;
 
   var myOuterWidth = overallGridSize + (gridBoundaryMargin + 15);
   var opponentOuterWidth = opponentOverallGridSize + (gridBoundaryMargin + 15);
+  var desiredBoardGap = 220;
+  var minimumBoardGap = 120;
+  var maxBoardGap = Math.max(minimumBoardGap, canvas.width - myOuterWidth - opponentOuterWidth - 20);
+  var boardGap = Math.max(minimumBoardGap, Math.min(desiredBoardGap, maxBoardGap));
 
   var myOuterCenterX = timerCenterX - (boardGap / 2) - (myOuterWidth / 2);
   var opponentOuterCenterX = timerCenterX + (boardGap / 2) + (opponentOuterWidth / 2);
@@ -873,12 +876,10 @@ function renderBoardHeaders(){
 
 function enterFrame(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  var layout = updateBoardLayout();
   renderBoardHeaders();
 
-  var myBoardCenterX = gridOffSetX + (overallGridSize/2);
-  var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
-  var opponentBoardCenterX = opponentGridOffSetX + ((opponentGridSize * cellSize)/2);
-  var timerCenterX = (myBoardCenterX + opponentBoardCenterX) / 2;
+  var timerCenterX = layout.timerCenterX;
 
   renderStopwatch(timerCenterX,96);
   renderStopwatchHand(timerCenterX,96,timer || 0);
@@ -944,7 +945,7 @@ function renderCountdownOverlay(){
 
   ctx.globalAlpha = 0.82;
   ctx.fillStyle = CANVAS_CELL_BG;
-  ctx.roundRect(gridOffSetX-24, gridOffSetY-24, overallGridSize+48, overallGridSize+48, 8, true, false);
+  ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 8, true, false);
   ctx.globalAlpha = 1;
 
   ctx.fillStyle = CANVAS_TEXT;
@@ -1141,8 +1142,11 @@ function getPointerPosition(evt){
   if(!sourceEvent){
     return;
   }
-  mouseX = sourceEvent.clientX - can.offsetLeft;
-  mouseY = sourceEvent.clientY - can.offsetTop;
+  var rect = can.getBoundingClientRect();
+  var scaleX = canvas.width / rect.width;
+  var scaleY = canvas.height / rect.height;
+  mouseX = (sourceEvent.clientX - rect.left) * scaleX;
+  mouseY = (sourceEvent.clientY - rect.top) * scaleY;
 }
 
 function mouseMove(evt){
