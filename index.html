@@ -34,13 +34,14 @@
   }
   #appHeader {
     width: min(960px, calc(100vw - 32px));
-    margin: 22px auto 10px;
+    margin: 20px auto 10px;
+    padding: 10px 0 14px;
     text-align: center;
     color: var(--text);
   }
   #appTitle {
     margin: 0;
-    font-size: clamp(34px, 5vw, 50px);
+    font-size: clamp(30px, 4.2vw, 42px);
     line-height: 1;
     letter-spacing: 1px;
     text-shadow: 0 0 18px rgba(76, 173, 255, 0.45);
@@ -59,6 +60,7 @@
     gap: 16px;
     align-items: flex-start;
     justify-content: center;
+    position: relative;
   }
   #speedogram {
     display: block;
@@ -299,27 +301,62 @@
     line-height: 1.4;
   }
   #shopPanel {
-    width: min(960px, calc(100vw - 32px));
-    margin: 10px auto 0;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(760px, calc(100% - 60px));
     text-align: center;
     color: var(--text);
     font-size: 13px;
+    z-index: 3;
+  }
+  #shopTitle {
+    margin-bottom: 12px;
+    font-size: 16px;
+    letter-spacing: 0.3px;
   }
   #shopChoices {
-    margin-top: 8px;
     display: flex;
     justify-content: center;
-    gap: 8px;
+    gap: 14px;
     flex-wrap: wrap;
   }
   .shopChoiceBtn {
     border: 1px solid rgba(148, 201, 255, 0.55);
     background: rgba(17, 31, 69, 0.9);
-    border-radius: 10px;
+    border-radius: 14px;
     color: var(--text);
-    padding: 8px 11px;
+    width: 190px;
+    height: 190px;
+    padding: 14px;
     cursor: pointer;
-    max-width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    font-size: 14px;
+    line-height: 1.35;
+    box-shadow: 0 10px 20px rgba(4, 10, 34, 0.45);
+  }
+  .shopChoiceBtn .shopChoiceIcon {
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+    border: 2px dashed rgba(126, 194, 255, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    color: #a8d5ff;
+    text-transform: uppercase;
+    background: rgba(82, 182, 255, 0.08);
+  }
+  .shopChoiceBtn .shopChoiceText {
+    display: block;
+    max-width: 150px;
   }
   .shopChoiceBtn:disabled {
     opacity: 0.6;
@@ -345,12 +382,12 @@
     <button id="startButton">Start</button>
   </div>
   <div id="matchStatus" class="matchmakingUI" style="text-align:center;color:#0088FF;font-size:13px;">Enter your name and click Start.</div>
-  <div id="shopPanel" class="hidden">
-    <div id="shopTitle">Round shop</div>
-    <div id="shopChoices"></div>
-  </div>
     <div id="arena">
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
+    <div id="shopPanel" class="hidden">
+      <div id="shopTitle">Round shop</div>
+      <div id="shopChoices"></div>
+    </div>
   </div>
   <div id="multiplayerPanel">
     <div class="infoCard">
@@ -604,7 +641,14 @@ function renderShopChoices(){
     (function(option){
       var button = document.createElement("button");
       button.className = "shopChoiceBtn";
-      button.textContent = option.label;
+      var iconPlaceholder = document.createElement("span");
+      iconPlaceholder.className = "shopChoiceIcon";
+      iconPlaceholder.textContent = "Icon";
+      var label = document.createElement("span");
+      label.className = "shopChoiceText";
+      label.textContent = option.label;
+      button.appendChild(iconPlaceholder);
+      button.appendChild(label);
       button.disabled = !!hasPurchasedThisShop;
       button.addEventListener("click", function(){
         if(!socket || hasPurchasedThisShop){
@@ -931,7 +975,7 @@ function renderShopOverlay(){
   var title = "Round " + currentRound + " complete";
   ctx.fillText(title, overlayCenterX - (ctx.measureText(title).width / 2), overlayCenterY - 8);
   ctx.font = "16px Arial";
-  var subtitle = hasPurchasedThisShop ? "Waiting for opponent to choose..." : "Choose an upgrade above";
+  var subtitle = hasPurchasedThisShop ? "Waiting for opponent to choose..." : "Choose an upgrade below";
   ctx.fillText(subtitle, overlayCenterX - (ctx.measureText(subtitle).width / 2), overlayCenterY + 24);
 }
 function renderCountdownOverlay(){
