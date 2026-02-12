@@ -343,7 +343,7 @@
         <p id="helpDemoTitle">Example: watch this 3×3 puzzle being solved</p>
         <div id="helpDemoBoard">
           <span></span>
-          <span class="demoAxisLabel">2</span>
+          <span class="demoAxisLabel">3</span>
           <span class="demoAxisLabel">1</span>
           <span class="demoAxisLabel">1</span>
           <span class="demoAxisLabel">2</span>
@@ -414,6 +414,7 @@ var opponentState = null;
 var appVersionEl = document.getElementById("appVersion");
 var sharedTimeRemaining = "--";
 var opponentGridOffSetX = 560;
+var boardTopY = 120;
 var myDisplayName = "You";
 var opponentDisplayName = "Opponent";
 var pendingPredictions = [];
@@ -597,6 +598,36 @@ function setMatchmakingVisible(visible){
   }
 }
 
+function updateBoardLayout(){
+  overallGridSize = gridSize * cellSize;
+  var opponentGridSizeLayout = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
+  var opponentOverallGridSize = opponentGridSizeLayout * cellSize;
+  var timerCenterX = canvas.width / 2;
+  var boardGap = 170;
+
+  var myOuterWidth = overallGridSize + (gridBoundaryMargin + 15);
+  var opponentOuterWidth = opponentOverallGridSize + (gridBoundaryMargin + 15);
+
+  var myOuterCenterX = timerCenterX - (boardGap / 2) - (myOuterWidth / 2);
+  var opponentOuterCenterX = timerCenterX + (boardGap / 2) + (opponentOuterWidth / 2);
+
+  gridOffSetX = Math.round(myOuterCenterX + gridBoundaryMargin - (myOuterWidth / 2));
+  opponentGridOffSetX = Math.round(opponentOuterCenterX + gridBoundaryMargin - (opponentOuterWidth / 2));
+  gridOffSetY = boardTopY;
+
+  return {
+    timerCenterX: timerCenterX,
+    opponentGridSize: opponentGridSizeLayout,
+    opponentOverallGridSize: opponentOverallGridSize
+  };
+}
+
+function getOuterBoardCenterX(gridOffsetX, boardPixelSize){
+  var outerX = gridOffsetX - gridBoundaryMargin;
+  var outerWidth = boardPixelSize + (gridBoundaryMargin + 15);
+  return outerX + (outerWidth / 2);
+}
+
 function updateSharedClock(currentTimer, limit){
   if(!Number.isFinite(currentTimer) || !Number.isFinite(limit) || limit <= 0){
     return;
@@ -615,7 +646,7 @@ function drawOpponentBoard(){
 
   var opGridSize = opponentState.gridSize || 3;
   var opOverallGridSize = opGridSize * cellSize;
-  var opGridOffSetY = 120;
+  var opGridOffSetY = gridOffSetY;
 
   ctx.globalAlpha = 0.1;
   ctx.fillStyle = CANVAS_ACCENT;
@@ -662,9 +693,8 @@ function drawOpponentBoard(){
   }
 
   var opLives = opponentState.lives || 0;
-  for(var livesCount = 0;livesCount<opLives;livesCount++){
-    renderOpponentHeart((livesCount*25)+opponentGridOffSetX+10-(opLives*12.5),opGridOffSetY+opOverallGridSize+25);
-  }
+  var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, opOverallGridSize);
+  renderHeartsRow(opponentBoardCenterX, opGridOffSetY + opOverallGridSize + 25, opLives, renderOpponentHeart);
 
   var opScore = opponentState.points || opponentState.score || 0;
   var opponentScoreX = opponentGridOffSetX - gridBoundaryMargin - 22;
@@ -775,9 +805,9 @@ function init(){
 }
 
 function renderBoardHeaders(){
-  var myBoardCenterX = gridOffSetX + (overallGridSize/2);
-  var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
-  var opponentBoardCenterX = opponentGridOffSetX + ((opponentGridSize * cellSize)/2);
+  var layout = updateBoardLayout();
+  var myBoardCenterX = getOuterBoardCenterX(gridOffSetX, overallGridSize);
+  var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, (layout.opponentGridSize * cellSize));
 
   ctx.font = "20px Arial";
   ctx.fillStyle = CANVAS_ACCENT;
@@ -853,8 +883,12 @@ function renderShopOverlay(){
 }
 function renderCountdownOverlay(){
   var seconds = Math.max(1, countdownRemaining || 0);
-  var boardCenterX = gridOffSetX + (overallGridSize/2);
-  var boardCenterY = gridOffSetY + (overallGridSize/2);
+  var boardCenterX = canvas.width / 2;
+  var boardCenterY = canvas.height / 2;
+  var overlayWidth = overallGridSize + 48;
+  var overlayHeight = overallGridSize + 48;
+  var overlayX = boardCenterX - (overlayWidth / 2);
+  var overlayY = boardCenterY - (overlayHeight / 2);
 
   ctx.globalAlpha = 0.82;
   ctx.fillStyle = CANVAS_CELL_BG;
@@ -969,16 +1003,20 @@ function renderCross(x,y){
   ctx.translate(-x,-y);
 }
 
-function renderHealth(){
-  if(lives <= 0){
+function renderHeartsRow(centerX, y, count, drawHeart){
+  if(count <= 0){
     return;
   }
-  var boardCenterX = gridOffSetX + (overallGridSize/2);
-  var heartsRowWidth = ((lives-1) * HEART_SPACING) + HEART_ICON_WIDTH;
-  var heartsStartX = boardCenterX - (heartsRowWidth/2);
-  for(var livesCount = 0;livesCount<lives;livesCount++){
-    renderHeart(heartsStartX + (livesCount*HEART_SPACING),gridOffSetY+overallGridSize+25);
+  var heartsRowWidth = ((count-1) * HEART_SPACING) + HEART_ICON_WIDTH;
+  var heartsStartX = centerX - (heartsRowWidth/2);
+  for(var i = 0; i < count; i++){
+    drawHeart(heartsStartX + (i*HEART_SPACING), y);
   }
+}
+
+function renderHealth(){
+  var boardCenterX = getOuterBoardCenterX(gridOffSetX, overallGridSize);
+  renderHeartsRow(boardCenterX, gridOffSetY + overallGridSize + 25, lives, renderHeart);
 }
 
 function renderHeart(x,y){
@@ -1277,8 +1315,7 @@ function applyServerState(state){
   }
 
   overallGridSize = gridSize*cellSize;
-  gridOffSetX = 120;
-  gridOffSetY = 120;
+  updateBoardLayout();
 }
 
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius, fill, stroke) {
