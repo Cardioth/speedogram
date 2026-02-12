@@ -823,8 +823,10 @@ function enterFrame(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   renderBoardHeaders();
 
-  var layout = updateBoardLayout();
-  var timerCenterX = layout.timerCenterX;
+  var myBoardCenterX = gridOffSetX + (overallGridSize/2);
+  var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
+  var opponentBoardCenterX = opponentGridOffSetX + ((opponentGridSize * cellSize)/2);
+  var timerCenterX = (myBoardCenterX + opponentBoardCenterX) / 2;
 
   renderStopwatch(timerCenterX,96);
   renderStopwatchHand(timerCenterX,96,timer || 0);
@@ -890,7 +892,7 @@ function renderCountdownOverlay(){
 
   ctx.globalAlpha = 0.82;
   ctx.fillStyle = CANVAS_CELL_BG;
-  ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 8, true, false);
+  ctx.roundRect(gridOffSetX-24, gridOffSetY-24, overallGridSize+48, overallGridSize+48, 8, true, false);
   ctx.globalAlpha = 1;
 
   ctx.fillStyle = CANVAS_TEXT;
