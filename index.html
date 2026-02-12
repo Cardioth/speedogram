@@ -2,61 +2,108 @@
 <html>
 <title>Speed-o-Gram</title>
 <style>
+  :root {
+    --bg-1: #070b1c;
+    --bg-2: #11183a;
+    --panel: rgba(16, 25, 58, 0.78);
+    --panel-border: rgba(127, 182, 255, 0.35);
+    --accent: #52b6ff;
+    --accent-strong: #1d90ff;
+    --text: #e8f2ff;
+    --text-muted: #9cb7d8;
+    --shadow: 0 20px 60px rgba(3, 8, 30, 0.55);
+  }
   body {
-    font-family: Arial, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 12% 20%, rgba(64, 144, 255, 0.24), transparent 34%),
+      radial-gradient(circle at 85% 12%, rgba(120, 88, 255, 0.22), transparent 28%),
+      linear-gradient(150deg, var(--bg-1), var(--bg-2));
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(120, 176, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(120, 176, 255, 0.04) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: 0.5;
   }
   #appHeader {
-    width: 900px;
-    margin: 14px auto 4px;
+    width: min(960px, calc(100vw - 32px));
+    margin: 22px auto 10px;
     text-align: center;
-    color: #0088FF;
+    color: var(--text);
   }
   #appTitle {
     margin: 0;
-    font-size: 40px;
+    font-size: clamp(34px, 5vw, 50px);
     line-height: 1;
-    letter-spacing: 0.4px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 18px rgba(76, 173, 255, 0.45);
   }
   #appVersion {
-    margin-top: 4px;
+    margin-top: 8px;
     font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
   }
   #arena {
-    width: 900px;
-    margin: 10px auto 0;
+    width: min(960px, calc(100vw - 32px));
+    margin: 12px auto 0;
     display: flex;
-    gap: 20px;
+    gap: 16px;
     align-items: flex-start;
     justify-content: center;
   }
   #speedogram {
     display: block;
+    width: min(900px, calc(100vw - 42px));
+    height: auto;
+    border-radius: 16px;
+    background: linear-gradient(160deg, rgba(11, 20, 48, 0.93), rgba(9, 16, 38, 0.95));
+    box-shadow: var(--shadow);
+    border: 1px solid var(--panel-border);
   }
   .hidden {
     display: none !important;
   }
   #controls {
-    width: 900px;
-    margin: 18px auto 8px;
+    width: min(960px, calc(100vw - 32px));
+    margin: 16px auto 10px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
     justify-content: center;
-    color: #0088FF;
+    color: var(--text);
   }
   #playerName {
-    border: 1px solid #8cc6ff;
-    border-radius: 4px;
-    padding: 6px;
+    border: 1px solid rgba(130, 183, 255, 0.55);
+    border-radius: 12px;
+    padding: 10px 12px;
     min-width: 180px;
+    background: rgba(10, 20, 50, 0.75);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+  #playerName::placeholder {
+    color: #8ea5c2;
   }
   #startButton {
-    border: 1px solid #8cc6ff;
-    background: #f7fbff;
-    border-radius: 4px;
-    color: #0088FF;
-    padding: 6px 12px;
+    border: 1px solid rgba(148, 201, 255, 0.7);
+    background: linear-gradient(180deg, #59c1ff 0%, #2199ff 100%);
+    border-radius: 12px;
+    color: #f7fcff;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 600;
+    padding: 10px 16px;
     cursor: pointer;
+    box-shadow: 0 8px 20px rgba(38, 144, 255, 0.35);
   }
   #startButton:disabled {
     cursor: not-allowed;
@@ -69,22 +116,24 @@
     line-height: 1.4;
   }
   #multiplayerPanel {
-    width: 900px;
-    margin: 12px auto 0;
-    font-family: Arial, sans-serif;
-    color: #0088FF;
+    width: min(960px, calc(100vw - 32px));
+    margin: 14px auto 0;
+    color: var(--text);
     display: flex;
     gap: 12px;
     align-items: flex-start;
     justify-content: center;
+    flex-wrap: wrap;
   }
   .infoCard {
-    border: 1px solid #8cc6ff;
-    border-radius: 6px;
-    background: #f7fbff;
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    background: var(--panel);
+    backdrop-filter: blur(4px);
     padding: 10px 12px;
     width: 430px;
     min-height: 74px;
+    box-shadow: var(--shadow);
   }
   #helpLinkWrap {
     width: 900px;
@@ -92,15 +141,17 @@
     text-align: center;
   }
   #helpLink {
-    color: #0088FF;
+    color: #9bd2ff;
     font-size: 14px;
-    text-decoration: underline;
+    text-decoration: none;
     cursor: pointer;
+    border-bottom: 1px dashed rgba(155, 210, 255, 0.6);
+    padding-bottom: 2px;
   }
   #helpModal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 40, 80, 0.5);
+    background: rgba(6, 12, 28, 0.76);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -110,17 +161,17 @@
     display: none;
   }
   #helpModalCard {
-    background: #FFFFFF;
-    border: 1px solid #8cc6ff;
-    border-radius: 8px;
+    background: linear-gradient(160deg, #0f1940, #101835);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
     width: min(640px, calc(100vw - 40px));
     padding: 18px 20px;
-    box-shadow: 0 8px 24px rgba(0, 60, 120, 0.25);
-    color: #005fa8;
+    box-shadow: var(--shadow);
+    color: var(--text);
   }
   #helpModalCard h3 {
     margin: 0 0 10px;
-    color: #0088FF;
+    color: #9dd6ff;
   }
   #helpModalText {
     margin: 0;
@@ -197,14 +248,14 @@
     margin: 10px 0 0;
     text-align: center;
     font-size: 12px;
-    color: #297fc7;
+    color: #9fc3e8;
   }
   #closeHelpButton {
     margin-top: 14px;
-    border: 1px solid #8cc6ff;
-    background: #f7fbff;
-    border-radius: 4px;
-    color: #0088FF;
+    border: 1px solid rgba(148, 201, 255, 0.7);
+    background: linear-gradient(180deg, #59c1ff 0%, #2199ff 100%);
+    border-radius: 10px;
+    color: #f5fbff;
     padding: 6px 12px;
     cursor: pointer;
   }
@@ -218,10 +269,10 @@
     line-height: 1.4;
   }
   #shopPanel {
-    width: 900px;
+    width: min(960px, calc(100vw - 32px));
     margin: 10px auto 0;
     text-align: center;
-    color: #0088FF;
+    color: var(--text);
     font-size: 13px;
   }
   #shopChoices {
@@ -232,17 +283,26 @@
     flex-wrap: wrap;
   }
   .shopChoiceBtn {
-    border: 1px solid #8cc6ff;
-    background: #f7fbff;
-    border-radius: 4px;
-    color: #0088FF;
-    padding: 6px 10px;
+    border: 1px solid rgba(148, 201, 255, 0.55);
+    background: rgba(17, 31, 69, 0.9);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 8px 11px;
     cursor: pointer;
     max-width: 260px;
   }
   .shopChoiceBtn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+  #matchStatus {
+    color: var(--text-muted) !important;
+    letter-spacing: 0.2px;
+  }
+  @media (max-width: 960px) {
+    .infoCard {
+      width: 100%;
+    }
   }
 </style>
 <body>
@@ -273,21 +333,17 @@
     </div>
   </div>
   <div id="helpLinkWrap">
-    <a id="helpLink" href="#">how to play</a>
+    <a id="helpLink" href="#">How to Play</a>
   </div>
 
   <div id="helpModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
     <div id="helpModalCard">
       <h3 id="helpModalTitle">How to Play</h3>
-      <p id="helpModalText">The rules are simple.
-
-You have a grid of squares, which must be either filled in black or marked with X. Beside each row of the grid are listed the lengths of the runs of black squares on that row. Above each column are listed the lengths of the runs of black squares in that column. Your aim is to find all black squares.
-Left click on a square to make it black. Right click to mark with X. Click and drag to mark more than one square.</p>
       <div id="helpDemo" aria-hidden="true">
         <p id="helpDemoTitle">Example: watch this 3×3 puzzle being solved</p>
         <div id="helpDemoBoard">
           <span></span>
-          <span class="demoAxisLabel">2</span>
+          <span class="demoAxisLabel">3</span>
           <span class="demoAxisLabel">1</span>
           <span class="demoAxisLabel">1</span>
           <span class="demoAxisLabel">2</span>
@@ -298,13 +354,17 @@ Left click on a square to make it black. Right click to mark with X. Click and d
           <div class="demoCell" data-demo-cell="3"></div>
           <div class="demoCell" data-demo-cell="4"></div>
           <div class="demoCell" data-demo-cell="5"></div>
-          <span class="demoAxisLabel">1</span>
+          <span class="demoAxisLabel">1 1</span>
           <div class="demoCell" data-demo-cell="6"></div>
           <div class="demoCell" data-demo-cell="7"></div>
           <div class="demoCell" data-demo-cell="8"></div>
         </div>
         <p id="helpDemoCaption">Blue squares are filled. Gray X marks ruled-out cells.</p>
       </div>
+      <p id="helpModalText">The rules are simple.
+
+You have a grid of squares, which must be either filled in black or marked with X. Beside each row of the grid are listed the lengths of the runs of black squares on that row. Above each column are listed the lengths of the runs of black squares in that column. Your aim is to find all black squares.
+Left click on a square to make it black. Right click to mark with X. Click and drag to mark more than one square.</p>
       <button id="closeHelpButton" type="button">Close</button>
     </div>
   </div>
@@ -313,6 +373,11 @@ Left click on a square to make it black. Right click to mark with X. Click and d
 <script src="/socket.io/socket.io.js"></script>
 <script>
 var versionNumber = "V0.1"
+var CANVAS_ACCENT = "#52b6ff";
+var CANVAS_ACCENT_STRONG = "#1d90ff";
+var CANVAS_CELL_BG = "#0f1c45";
+var CANVAS_TEXT = "#dff1ff";
+var CANVAS_DANGER = "#ff6f7d";
 var canvas = document.getElementById('speedogram');
 var canvasSize = canvas.width;
 var height = canvas.height;
@@ -349,6 +414,7 @@ var opponentState = null;
 var appVersionEl = document.getElementById("appVersion");
 var sharedTimeRemaining = "--";
 var opponentGridOffSetX = 560;
+var boardTopY = 120;
 var myDisplayName = "You";
 var opponentDisplayName = "Opponent";
 var pendingPredictions = [];
@@ -371,7 +437,7 @@ var helpDemoFrames = [
   { index: 3, state: "fill" },
   { index: 4, state: "mark" },
   { index: 5, state: "mark" },
-  { index: 6, state: "mark" },
+  { index: 6, state: "fill" },
   { index: 7, state: "mark" },
   { index: 8, state: "fill" },
   { state: "pause" },
@@ -532,6 +598,36 @@ function setMatchmakingVisible(visible){
   }
 }
 
+function updateBoardLayout(){
+  overallGridSize = gridSize * cellSize;
+  var opponentGridSizeLayout = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
+  var opponentOverallGridSize = opponentGridSizeLayout * cellSize;
+  var timerCenterX = canvas.width / 2;
+  var boardGap = 170;
+
+  var myOuterWidth = overallGridSize + (gridBoundaryMargin + 15);
+  var opponentOuterWidth = opponentOverallGridSize + (gridBoundaryMargin + 15);
+
+  var myOuterCenterX = timerCenterX - (boardGap / 2) - (myOuterWidth / 2);
+  var opponentOuterCenterX = timerCenterX + (boardGap / 2) + (opponentOuterWidth / 2);
+
+  gridOffSetX = Math.round(myOuterCenterX + gridBoundaryMargin - (myOuterWidth / 2));
+  opponentGridOffSetX = Math.round(opponentOuterCenterX + gridBoundaryMargin - (opponentOuterWidth / 2));
+  gridOffSetY = boardTopY;
+
+  return {
+    timerCenterX: timerCenterX,
+    opponentGridSize: opponentGridSizeLayout,
+    opponentOverallGridSize: opponentOverallGridSize
+  };
+}
+
+function getOuterBoardCenterX(gridOffsetX, boardPixelSize){
+  var outerX = gridOffsetX - gridBoundaryMargin;
+  var outerWidth = boardPixelSize + (gridBoundaryMargin + 15);
+  return outerX + (outerWidth / 2);
+}
+
 function updateSharedClock(currentTimer, limit){
   if(!Number.isFinite(currentTimer) || !Number.isFinite(limit) || limit <= 0){
     return;
@@ -543,20 +639,20 @@ function updateSharedClock(currentTimer, limit){
 function drawOpponentBoard(){
   if(!opponentState){
     ctx.font = "16px Arial";
-    ctx.fillStyle = "#0088FF";
+    ctx.fillStyle = CANVAS_ACCENT;
     ctx.fillText("Waiting for opponent board...", opponentGridOffSetX + 40, 200);
     return;
   }
 
   var opGridSize = opponentState.gridSize || 3;
   var opOverallGridSize = opGridSize * cellSize;
-  var opGridOffSetY = 120;
+  var opGridOffSetY = gridOffSetY;
 
   ctx.globalAlpha = 0.1;
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
   ctx.roundRect(opponentGridOffSetX-gridBoundaryMargin,opGridOffSetY-gridBoundaryMargin,opOverallGridSize+(gridBoundaryMargin+15),opOverallGridSize+(gridBoundaryMargin+15), 5,true,false);
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = "#0088FF";
+  ctx.strokeStyle = CANVAS_ACCENT;
   ctx.lineWidth = .75;
   ctx.roundRect(opponentGridOffSetX-gridBoundaryMargin,opGridOffSetY-gridBoundaryMargin,opOverallGridSize+(gridBoundaryMargin+15),opOverallGridSize+(gridBoundaryMargin+15), 5,false,true);
 
@@ -565,14 +661,14 @@ function drawOpponentBoard(){
   for (var counts in X){
     for(var seg in X[counts]){
       ctx.font = "11px Arial";
-      ctx.fillStyle = "#0088FF";
+      ctx.fillStyle = CANVAS_ACCENT;
       ctx.fillText(X[counts][X[counts].length-seg-1], opponentGridOffSetX+(cellSize/4)+(counts*cellSize), opGridOffSetY-10-(seg*15));
     }
   }
   for (var rowCounts in Y){
     for(var rowSeg in Y[rowCounts]){
       ctx.font = "11px Arial";
-      ctx.fillStyle = "#0088FF";
+      ctx.fillStyle = CANVAS_ACCENT;
       ctx.fillText(Y[rowCounts][Y[rowCounts].length-rowSeg-1], opponentGridOffSetX-(rowSeg*15)-14, opGridOffSetY+6+(cellSize/4)+(rowCounts*cellSize));
     }
   }
@@ -582,12 +678,12 @@ function drawOpponentBoard(){
   for(var i = 0; i<opGridSize;i++){
     for(var j = 0; j<opGridSize;j++){
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "#0088FF";
-      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = CANVAS_ACCENT;
+      ctx.fillStyle = CANVAS_CELL_BG;
       ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,true);
       if(guesses[i] && guesses[i][j] === 1){
         if(opGrid[i] && opGrid[i][j] === 1){
-          ctx.fillStyle = "#0088FF";
+          ctx.fillStyle = CANVAS_ACCENT;
           ctx.roundRect(i*cellSize+opponentGridOffSetX,j*cellSize+opGridOffSetY,cellSize,cellSize, 3,true,false);
         } else {
           renderCross(i*cellSize+opponentGridOffSetX-3,j*cellSize+opGridOffSetY-3);
@@ -597,9 +693,8 @@ function drawOpponentBoard(){
   }
 
   var opLives = opponentState.lives || 0;
-  for(var livesCount = 0;livesCount<opLives;livesCount++){
-    renderOpponentHeart((livesCount*25)+opponentGridOffSetX+10-(opLives*12.5),opGridOffSetY+opOverallGridSize+25);
-  }
+  var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, opOverallGridSize);
+  renderHeartsRow(opponentBoardCenterX, opGridOffSetY + opOverallGridSize + 25, opLives, renderOpponentHeart);
 
   var opScore = opponentState.points || opponentState.score || 0;
   var opponentScoreX = opponentGridOffSetX - gridBoundaryMargin - 22;
@@ -710,12 +805,12 @@ function init(){
 }
 
 function renderBoardHeaders(){
-  var myBoardCenterX = gridOffSetX + (overallGridSize/2);
-  var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
-  var opponentBoardCenterX = opponentGridOffSetX + ((opponentGridSize * cellSize)/2);
+  var layout = updateBoardLayout();
+  var myBoardCenterX = getOuterBoardCenterX(gridOffSetX, overallGridSize);
+  var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, (layout.opponentGridSize * cellSize));
 
   ctx.font = "20px Arial";
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
 
   var myName = myDisplayName || "You";
   var opponentName = opponentDisplayName || "Opponent";
@@ -728,12 +823,17 @@ function enterFrame(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   renderBoardHeaders();
 
-  renderStopwatch(840,96);
-  renderStopwatchHand(840,96,timer || 0);
+  var layout = updateBoardLayout();
+  var timerCenterX = layout.timerCenterX;
+
+  renderStopwatch(timerCenterX,96);
+  renderStopwatchHand(timerCenterX,96,timer || 0);
   ctx.font = "14px Arial";
-  ctx.fillStyle = "#0088FF";
-  ctx.fillText("Time: " + sharedTimeRemaining, 790, 142);
-  ctx.fillText("Round: " + currentRound + "/6", 790, 160);
+  ctx.fillStyle = CANVAS_ACCENT;
+  var timeLabel = "Time: " + sharedTimeRemaining;
+  var roundLabel = "Round: " + currentRound + "/6";
+  ctx.fillText(timeLabel, timerCenterX - (ctx.measureText(timeLabel).width / 2), 142);
+  ctx.fillText(roundLabel, timerCenterX - (ctx.measureText(roundLabel).width / 2), 160);
 
   if(gameMode == "play" || gameMode == "gameOver" || gameMode == "countdown" || gameMode == "shop" || gameMode == "roundOver"){
     renderBackdrop();
@@ -767,11 +867,11 @@ function renderShopOverlay(){
   var overlayY = overlayCenterY - (overlayHeight / 2);
 
   ctx.globalAlpha = 0.82;
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = CANVAS_CELL_BG;
   ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 8, true, false);
   ctx.globalAlpha = 1;
 
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_TEXT;
   ctx.font = "bold 24px Arial";
   var title = "Round " + currentRound + " complete";
   ctx.fillText(title, overlayCenterX - (ctx.measureText(title).width / 2), overlayCenterY - 8);
@@ -781,15 +881,19 @@ function renderShopOverlay(){
 }
 function renderCountdownOverlay(){
   var seconds = Math.max(1, countdownRemaining || 0);
-  var boardCenterX = gridOffSetX + (overallGridSize/2);
-  var boardCenterY = gridOffSetY + (overallGridSize/2);
+  var boardCenterX = canvas.width / 2;
+  var boardCenterY = canvas.height / 2;
+  var overlayWidth = overallGridSize + 48;
+  var overlayHeight = overallGridSize + 48;
+  var overlayX = boardCenterX - (overlayWidth / 2);
+  var overlayY = boardCenterY - (overlayHeight / 2);
 
   ctx.globalAlpha = 0.82;
-  ctx.fillStyle = "#FFFFFF";
-  ctx.roundRect(gridOffSetX-24, gridOffSetY-24, overallGridSize+48, overallGridSize+48, 8, true, false);
+  ctx.fillStyle = CANVAS_CELL_BG;
+  ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 8, true, false);
   ctx.globalAlpha = 1;
 
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_TEXT;
   ctx.font = "bold 56px Arial";
   var countdownText = String(seconds);
   ctx.fillText(countdownText, boardCenterX - (ctx.measureText(countdownText).width / 2), boardCenterY + 20);
@@ -802,7 +906,7 @@ function renderCountdownOverlay(){
 function renderGameOver(){
   var gameOverText = winnerText || ("Final Points: " + points);
   ctx.font = "14px Arial";
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
   ctx.fillText(gameOverText, gridOffSetX-gridBoundaryMargin, 9);
 }
 
@@ -835,13 +939,13 @@ function clearSceneObjects(){
 function renderButton(x,y,width,height,text){
   ctx.translate(x,y);
   ctx.globalAlpha = 0.2;
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
   ctx.roundRect(-width/2,-height/2,width,height,3,true,false);
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = "#0088FF";
+  ctx.strokeStyle = CANVAS_ACCENT;
   ctx.roundRect(-width/2,-height/2,width,height,3,false,true);
   ctx.font = "18px Arial";
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
   ctx.fillText(text,-(ctx.measureText(text).width/2),6);
   ctx.translate(-x,-y);
 }
@@ -855,7 +959,7 @@ function renderStopwatchTimer(x,y,time){
   ctx.save();
   ctx.translate(x,y);
   ctx.font = "12px Arial";
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
   ctx.fillText(timeSeconds,0,0);
   ctx.restore();
 }
@@ -864,7 +968,7 @@ function renderStopwatchHand(x,y,time){
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate((Math.PI / 180) * time*360/timeLimit);
-  ctx.fillStyle = "#0088FF"
+  ctx.fillStyle = CANVAS_ACCENT
   ctx.fillRect(-2,-19,4,19);
   ctx.restore();
 }
@@ -877,14 +981,14 @@ function renderScore(){
 function renderStar(x,y){
   let p = new Path2D('M 0.55 -7.9 Q 0.5 -8.1 0.3 -8.25 0.15 -8.35 -0.1 -8.35 -0.3 -8.35 -0.5 -8.25 -0.65 -8.1 -0.75 -7.9 L -2.55 -2.7 -8.05 -2.55 Q -8.3 -2.55 -8.45 -2.45 -8.6 -2.3 -8.7 -2.1 -8.75 -1.9 -8.7 -1.65 -8.6 -1.45 -8.45 -1.35 L -4.1 2 -5.65 7.25 Q -5.75 7.45 -5.65 7.7 -5.6 7.9 -5.45 8.05 -5.25 8.15 -5 8.15 -4.8 8.15 -4.6 8.05 L -0.1 4.9 4.45 8.05 Q 4.6 8.15 4.8 8.15 5.05 8.15 5.25 8.05 5.4 7.9 5.45 7.7 5.55 7.45 5.45 7.25 L 3.9 2 8.25 -1.35 Q 8.4 -1.45 8.5 -1.65 8.55 -1.9 8.5 -2.1 8.4 -2.3 8.25 -2.45 8.1 -2.55 7.9 -2.55 L 2.35 -2.7 0.55 -7.9 Z');
   ctx.translate(x,y);
-  ctx.fillStyle = "#0088FF"
+  ctx.fillStyle = CANVAS_ACCENT
   ctx.fill(p);
   ctx.translate(-x,-y);
 }
 function renderStopwatch(x,y){
   let p = new Path2D('M 8.5 -38.9 Q 7.95 -39.45 7.2 -39.45 L -7.95 -39.45 Q -8.75 -39.45 -9.3 -38.9 -9.85 -38.35 -9.85 -37.6 L -9.85 -34.9 Q -9.85 -34.15 -9.3 -33.55 -8.75 -33.05 -7.95 -33.05 L 7.2 -33.05 Q 7.95 -33.05 8.5 -33.55 9.05 -34.15 9.05 -34.9 L 9.05 -37.6 Q 9.05 -38.35 8.5 -38.9 M 5.3 -36.8 L 5.3 -35.7 -6.1 -35.7 -6.1 -36.8 5.3 -36.8 M 24.45 -27.6 Q 23.9 -28.15 23.15 -28.15 22.35 -28.15 21.8 -27.55 21.3 -27 21.3 -26.25 21.3 -25.7 21.6 -25.25 L 17.4 -21.1 Q 13 -24.8 7.7 -26.35 L 7.7 -30.1 Q 7.7 -30.85 7.2 -31.4 6.6 -31.95 5.85 -31.95 L -6.9 -31.95 Q -7.65 -31.95 -8.2 -31.4 -8.75 -30.85 -8.75 -30.1 L -8.75 -26.25 Q -13.7 -24.7 -17.85 -21.25 L -21.65 -25.05 Q -21.25 -25.6 -21.25 -26.25 -21.25 -27.05 -21.8 -27.55 -22.35 -28.15 -23.15 -28.15 -23.9 -28.15 -24.45 -27.55 L -25.65 -26.4 Q -25.7 -26.35 -25.7 -26.3 L -26.8 -25.3 Q -27.4 -24.8 -27.4 -24.05 -27.45 -23.25 -26.9 -22.7 -26.4 -22.1 -25.6 -22.05 -24.9 -22.05 -24.4 -22.45 L -20.6 -18.7 Q -28.1 -10.75 -28.1 0.3 -28.1 11.8 -19.95 19.9 -11.85 28.05 -0.35 28.05 11.15 28.05 19.3 19.9 27.4 11.8 27.4 0.3 27.4 -10.6 20.15 -18.5 L 24.25 -22.6 Q 24.8 -22.05 25.55 -22.05 26.35 -22.05 26.9 -22.65 27.4 -23.2 27.4 -23.95 27.4 -24.75 26.85 -25.3 L 24.45 -27.6 M 3.95 -28.2 L 3.95 -24.9 Q 3.95 -24.25 4.35 -23.7 4.75 -23.2 5.4 -23.05 11.75 -21.6 16.65 -16.7 23.65 -9.65 23.65 0.3 23.65 10.25 16.65 17.25 9.6 24.3 -0.35 24.3 -10.25 24.3 -17.3 17.25 -24.3 10.25 -24.3 0.3 -24.3 -9.65 -17.3 -16.7 -17 -17 -16.7 -17.25 L -16.65 -17.3 Q -16.65 -17.35 -16.6 -17.35 L -16.6 -17.4 Q -16.5 -17.45 -16.35 -17.55 -11.95 -21.6 -6.45 -23 -5.8 -23.15 -5.4 -23.65 -5 -24.15 -5 -24.8 L -5 -28.2 3.95 -28.2 M -1.65 21.1 Q -1.65 21.8 -1.15 22.3 -0.7 22.75 0 22.75 0.7 22.75 1.15 22.3 1.65 21.8 1.65 21.1 1.65 20.45 1.15 19.9 0.7 19.45 0 19.45 -0.7 19.45 -1.15 19.9 -1.65 20.45 -1.65 21.1 M -21.8 -1.2 Q -22.25 -0.7 -22.25 -0.05 -22.25 0.65 -21.8 1.15 -21.3 1.65 -20.6 1.65 -19.95 1.65 -19.4 1.15 -18.95 0.65 -18.95 -0.05 -18.95 -0.7 -19.4 -1.2 -19.95 -1.7 -20.6 -1.7 -21.3 -1.7 -21.8 -1.2 M 19.1 -1.2 Q 18.65 -0.7 18.65 -0.05 18.65 0.65 19.1 1.15 19.6 1.65 20.3 1.65 20.95 1.65 21.45 1.15 21.95 0.65 21.95 -0.05 21.95 -0.7 21.45 -1.2 20.95 -1.7 20.3 -1.7 19.6 -1.7 19.1 -1.2 M 1.65 -1.65 Q 0.95 -2.35 0 -2.35 -0.95 -2.35 -1.65 -1.65 -2.35 -1 -2.35 -0.05 -2.35 0.95 -1.65 1.65 -0.95 2.3 0 2.3 0.95 2.3 1.65 1.65 2.35 0.95 2.35 -0.05 2.35 -1 1.65 -1.65 M 0 -18.15 Q 0.7 -18.15 1.15 -18.6 1.65 -19.1 1.65 -19.8 1.65 -20.45 1.15 -20.95 0.7 -21.45 0 -21.45 -0.7 -21.45 -1.15 -20.95 -1.65 -20.45 -1.65 -19.8 -1.65 -19.1 -1.15 -18.6 -0.7 -18.15 0 -18.15 Z');
   ctx.translate(x,y);
-  ctx.fillStyle = "#0088FF"
+  ctx.fillStyle = CANVAS_ACCENT
   ctx.fill(p);
   ctx.translate(-x,-y);
 }
@@ -892,27 +996,31 @@ function renderStopwatch(x,y){
 function renderCross(x,y){
   let p = new Path2D('M 16.4 10.5 L 14.5 8.65 12.6 10.55 10.7 8.65 8.8 10.5 10.7 12.45 8.8 14.35 10.7 16.25 12.6 14.3 14.5 16.25 16.4 14.35 14.5 12.45 16.4 10.5 Z');
   ctx.translate(x,y);
-  ctx.fillStyle = "#0088FF"
+  ctx.fillStyle = CANVAS_ACCENT
   ctx.fill(p);
   ctx.translate(-x,-y);
 }
 
-function renderHealth(){
-  if(lives <= 0){
+function renderHeartsRow(centerX, y, count, drawHeart){
+  if(count <= 0){
     return;
   }
-  var boardCenterX = gridOffSetX + (overallGridSize/2);
-  var heartsRowWidth = ((lives-1) * HEART_SPACING) + HEART_ICON_WIDTH;
-  var heartsStartX = boardCenterX - (heartsRowWidth/2);
-  for(var livesCount = 0;livesCount<lives;livesCount++){
-    renderHeart(heartsStartX + (livesCount*HEART_SPACING),gridOffSetY+overallGridSize+25);
+  var heartsRowWidth = ((count-1) * HEART_SPACING) + HEART_ICON_WIDTH;
+  var heartsStartX = centerX - (heartsRowWidth/2);
+  for(var i = 0; i < count; i++){
+    drawHeart(heartsStartX + (i*HEART_SPACING), y);
   }
+}
+
+function renderHealth(){
+  var boardCenterX = getOuterBoardCenterX(gridOffSetX, overallGridSize);
+  renderHeartsRow(boardCenterX, gridOffSetY + overallGridSize + 25, lives, renderHeart);
 }
 
 function renderHeart(x,y){
   let p = new Path2D('M 24.1 7.05 Q 24.1 4.65 22.4 2.95 21.4 1.95 20.1 1.55 19.25 1.25 18.3 1.25 15.9 1.25 14.2 2.95 12.55 4.6 12.5 7 12.45 4.6 10.8 2.95 9.15 1.3 6.85 1.25 6.8 1.25 6.7 1.25 4.3 1.25 2.6 2.95 0.9 4.65 0.9 7.05 0.9 9 2.15 10.65 L 12.5 23.8 22.3 11.75 Q 24.1 9.45 24.1 7.05 Z');
   ctx.translate(x,y);
-  ctx.fillStyle = "#FF5555"
+  ctx.fillStyle = CANVAS_DANGER
   ctx.fill(p);
   ctx.translate(-x,-y);
 }
@@ -920,7 +1028,7 @@ function renderHeart(x,y){
 function renderOpponentHeart(x,y){
   let p = new Path2D('M 24.1 7.05 Q 24.1 4.65 22.4 2.95 21.4 1.95 20.1 1.55 19.25 1.25 18.3 1.25 15.9 1.25 14.2 2.95 12.55 4.6 12.5 7 12.45 4.6 10.8 2.95 9.15 1.3 6.85 1.25 6.8 1.25 6.7 1.25 4.3 1.25 2.6 2.95 0.9 4.65 0.9 7.05 0.9 9 2.15 10.65 L 12.5 23.8 22.3 11.75 Q 24.1 9.45 24.1 7.05 Z');
   ctx.translate(x,y);
-  ctx.fillStyle = "#FF5555";
+  ctx.fillStyle = CANVAS_DANGER;
   ctx.fill(p);
   ctx.translate(-x,-y);
 }
@@ -935,7 +1043,7 @@ function renderMouseOver(){
       //check if mouse is over cell
       if(mouseX > i*cellSize+gridOffSetX && mouseX < i*cellSize+cellSize+gridOffSetX && mouseY > j*cellSize+gridOffSetY && mouseY < j*cellSize+cellSize+gridOffSetY){
         ctx.globalAlpha = 0.2;
-        ctx.fillStyle = "#0088FF";
+        ctx.fillStyle = CANVAS_ACCENT;
         ctx.roundRect(i*cellSize+gridOffSetX,j*cellSize+gridOffSetY,cellSize,cellSize, 3,true,false);
       }
       ctx.globalAlpha = 1;
@@ -945,10 +1053,10 @@ function renderMouseOver(){
 
 function renderBackdrop(){
   ctx.globalAlpha = 0.1;
-  ctx.fillStyle = "#0088FF";
+  ctx.fillStyle = CANVAS_ACCENT;
   ctx.roundRect(gridOffSetX-gridBoundaryMargin,gridOffSetY-gridBoundaryMargin,overallGridSize+(gridBoundaryMargin+15),overallGridSize+(gridBoundaryMargin+15), 5,true,false);
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = "#0088FF";
+  ctx.strokeStyle = CANVAS_ACCENT;
   ctx.lineWidth = .75;
   ctx.roundRect(gridOffSetX-gridBoundaryMargin,gridOffSetY-gridBoundaryMargin,overallGridSize+(gridBoundaryMargin+15),overallGridSize+(gridBoundaryMargin+15), 5,false,true);
 }
@@ -956,14 +1064,14 @@ function renderClueText(){
   for (var counts in Xcounters){
     for(var seg in Xcounters[counts]){
       ctx.font = "11px Arial";
-      ctx.fillStyle = "#0088FF";
+      ctx.fillStyle = CANVAS_ACCENT;
       ctx.fillText(Xcounters[counts][Xcounters[counts].length-seg-1], gridOffSetX+(cellSize/4)+(counts*cellSize), gridOffSetY-10-(seg*15));
     }
   }
   for (var counts in Ycounters){
     for(var seg in Ycounters[counts]){
       ctx.font = "11px Arial";
-      ctx.fillStyle = "#0088FF";
+      ctx.fillStyle = CANVAS_ACCENT;
       ctx.fillText(Ycounters[counts][Ycounters[counts].length-seg-1], gridOffSetX-(seg*15)-14, gridOffSetY+6+(cellSize/4)+(counts*cellSize));
     }
   }
@@ -1205,8 +1313,7 @@ function applyServerState(state){
   }
 
   overallGridSize = gridSize*cellSize;
-  gridOffSetX = 120;
-  gridOffSetY = 120;
+  updateBoardLayout();
 }
 
 CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius, fill, stroke) {
@@ -1320,11 +1427,11 @@ function renderCells(){
   for(var i = 0; i<this.gridSize;i++){
     for(var j = 0; j<this.gridSize;j++){
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "#0088FF";
-      ctx.fillStyle = "#FFFFFF";
+      ctx.strokeStyle = CANVAS_ACCENT;
+      ctx.fillStyle = CANVAS_CELL_BG;
       ctx.roundRect(i*cellSize+gridOffSetX,j*cellSize+gridOffSetY,cellSize,cellSize, 3,true,true);
       if(gridGuesses[i][j] == 1 && grid[i][j] == 1){
-        ctx.fillStyle = "#0088FF";
+        ctx.fillStyle = CANVAS_ACCENT;
         ctx.roundRect(i*cellSize+gridOffSetX,j*cellSize+gridOffSetY,cellSize,cellSize, 3,true,false);
       }
       if(gridGuesses[i][j] == 1 && grid[i][j] == 0){
