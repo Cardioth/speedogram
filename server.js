@@ -40,8 +40,15 @@ function readEnv(...keys) {
   return "";
 }
 
-const REDIS_URL = readEnv("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL");
-const REDIS_TOKEN = readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN");
+function normalizeRedisToken(rawToken) {
+  if (!rawToken) return "";
+  const token = String(rawToken).trim();
+  const unquoted = token.replace(/^(["'])(.*)\1$/, "$2").trim();
+  return unquoted.replace(/^Bearer\s+/i, "").trim();
+}
+
+const REDIS_URL = readEnv("REDIS_URL", "UPSTASH_REDIS_REST_URL", "KV_REST_API_URL");
+const REDIS_TOKEN = normalizeRedisToken(readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"));
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
