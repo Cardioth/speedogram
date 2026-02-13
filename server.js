@@ -34,203 +34,40 @@ const LEADERBOARD_LIMIT = 10;
 function readEnv(...keys) {
   for (const key of keys) {
     const value = process.env[key];
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
+    if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "";
 }
 
-function normalizeRedisToken(rawToken) {
-  if (!rawToken) return "";
-  const token = String(rawToken).trim();
-  const unquoted = token.replace(/^(["'])(.*)\1$/, "$2").trim();
-  return unquoted.replace(/^Bearer\s+/i, "").trim();
-}
-
-function resolveRedisConfig() {
-  const pairs = [
-    {
-      urlKey: "UPSTASH_REDIS_REST_URL",
-      tokenKeys: ["UPSTASH_REDIS_REST_TOKEN", "UPSTASH_REDIS_PASSWORD"]
-    },
-    {
-      urlKey: "KV_REST_API_URL",
-      tokenKeys: ["KV_REST_API_TOKEN"]
-    },
-    {
-      urlKey: "REDIS_URL",
-      tokenKeys: ["REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"]
-    }
-  ];
-
-  for (const pair of pairs) {
-    const url = readEnv(pair.urlKey);
-    if (!url) continue;
-
-    const token = normalizeRedisToken(readEnv(...pair.tokenKeys));
-    const tokenSource = pair.tokenKeys.find((key) => typeof process.env[key] === "string" && process.env[key].trim()) || "<none>";
-
-    return {
-      url,
-      urlSource: pair.urlKey,
-      token,
-      tokenSource,
-      expectedTokenKeys: pair.tokenKeys
-    };
-  }
-
-  return {
-    url: "",
-    urlSource: "<none>",
-    token: normalizeRedisToken(readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD")),
-    tokenSource: "<none>",
-    expectedTokenKeys: ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD"]
-  };
-}
-
-const redisConfig = resolveRedisConfig();
-const REDIS_URL = redisConfig.url;
-const REDIS_TOKEN = redisConfig.token;
+const REDIS_URL = readEnv("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL");
+const REDIS_TOKEN = readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD");
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
-let redisEnabled = false;
 let redisClient = null;
-let leaderboardStorage = "memory";
-
-function maskTokenPreview(token) {
-  if (!token) return "<empty>";
-  if (token.length <= 8) return "*".repeat(token.length);
-  return `${token.slice(0, 4)}...${token.slice(-4)}`;
-}
-
-function logRedisEnvDiagnostics() {
-  console.log(`[leaderboard][env] URL source: ${redisConfig.urlSource}`);
-  console.log(`[leaderboard][env] TOKEN source: ${redisConfig.tokenSource}`);
-  console.log(`[leaderboard][env] URL present: ${Boolean(REDIS_URL)} value: ${REDIS_URL || "<empty>"}`);
-  console.log(`[leaderboard][env] TOKEN present: ${Boolean(REDIS_TOKEN)} length: ${REDIS_TOKEN.length} preview: ${maskTokenPreview(REDIS_TOKEN)}`);
-
-  if (REDIS_URL && redisConfig.tokenSource === "<none>") {
-    console.warn(`[leaderboard][env] URL is set via ${redisConfig.urlSource}, but no matching token is set. Expected one of: ${redisConfig.expectedTokenKeys.join(", ")}`);
-  }
-}
-
-function buildRedisCommandUrl(command, args = []) {
-  const baseUrl = REDIS_URL.replace(/\/$/, "");
-  const encodedArgs = args.map((arg) => encodeURIComponent(String(arg)));
-  return `${baseUrl}/${[command, ...encodedArgs].join("/")}`;
-}
-
-async function sendRedisRequest(url, headers) {
-  return fetch(url, {
-    method: "POST",
-    headers
-  });
-}
 
 async function runRedisCommand(command, args = []) {
-  if (!redisEnabled) return null;
-  const url = buildRedisCommandUrl(command, args);
-
-  const basicDefaultCredentials = Buffer.from(`default:${REDIS_TOKEN}`).toString("base64");
-  const basicPasswordOnlyCredentials = Buffer.from(`:${REDIS_TOKEN}`).toString("base64");
-
-  const authAttempts = [
-    {
-      label: "Bearer auth",
-      headers: {
-        Authorization: `Bearer ${REDIS_TOKEN}`,
-        "Upstash-Token": REDIS_TOKEN
-      }
-    },
-    {
-      label: "raw Authorization header",
-      headers: {
-        Authorization: REDIS_TOKEN,
-        "Upstash-Token": REDIS_TOKEN
-      }
-    },
-    {
-      label: "Basic auth (default user)",
-      headers: {
-        Authorization: `Basic ${basicDefaultCredentials}`
-      }
-    },
-    {
-      label: "Basic auth (password-only)",
-      headers: {
-        Authorization: `Basic ${basicPasswordOnlyCredentials}`
-      }
-    }
-  ];
-
-  let response = null;
-  let successfulAttemptLabel = "";
-
-  for (let index = 0; index < authAttempts.length; index += 1) {
-    const attempt = authAttempts[index];
-    response = await sendRedisRequest(url, attempt.headers);
-    if (response.status !== 401) {
-      successfulAttemptLabel = attempt.label;
-      break;
-    }
-
-    const hasNextAttempt = index < authAttempts.length - 1;
-    if (hasNextAttempt) {
-      console.warn(`[leaderboard] Redis ${command} returned 401 with ${attempt.label}. Retrying with ${authAttempts[index + 1].label}.`);
-    }
+  if (!redisClient) {
+    throw new Error("Redis client is not connected.");
   }
-
-  if (response.ok && successfulAttemptLabel && successfulAttemptLabel !== "Bearer auth") {
-    console.log(`[leaderboard] Redis ${command} succeeded with ${successfulAttemptLabel}.`);
-  }
-
-  if (!response.ok) {
-    let details = "";
-    try {
-      const errorPayload = await response.json();
-      details = errorPayload?.error ? ` - ${errorPayload.error}` : "";
-    } catch (_error) {
-      details = "";
-    }
-
-    console.error(`[leaderboard] Redis ${command} failed with status ${response.status}${details}`);
-    console.error(`[leaderboard] Redis request URL: ${REDIS_URL.replace(/\/$/, "")}/${command}`);
-
-    if (response.status === 401) {
-      throw new Error("Redis request failed: 401 (Unauthorized). Check token value and ensure it is either the Upstash REST token or Redis password for this database (no 'Bearer ' prefix). See [leaderboard][env] logs above.");
-    }
-
-    throw new Error(`Redis request failed: ${response.status}${details}`);
-  }
-
-  const payload = await response.json();
-  if (payload.error) {
-    throw new Error(payload.error);
-  }
-  return payload.result;
+  return redisClient.command(command, args);
 }
 
 async function connectRedis() {
-  logRedisEnvDiagnostics();
-
   if (!REDIS_URL) {
     throw new Error("[leaderboard] Missing Redis URL. Set UPSTASH_REDIS_REST_URL (or KV_REST_API_URL/REDIS_URL).");
   }
 
   if (!REDIS_TOKEN) {
-    throw new Error("[leaderboard] Missing Redis token. Set UPSTASH_REDIS_REST_TOKEN (or KV_REST_API_TOKEN/REDIS_TOKEN).");
+    throw new Error("[leaderboard] Missing Redis token. Set UPSTASH_REDIS_REST_TOKEN (or KV_REST_API_TOKEN/REDIS_TOKEN/UPSTASH_REDIS_PASSWORD).");
   }
 
   redisClient = createRedisClient({ url: REDIS_URL, token: REDIS_TOKEN });
-  redisEnabled = true;
   console.log(`[leaderboard] Connecting to Redis via ${REDIS_URL.replace(/\/$/, "")}`);
   await runRedisCommand("PING");
   console.log("[leaderboard] Connected to Redis.");
 }
 
 async function loadLeaderboardFromRedis() {
-  if (!redisEnabled) return;
   const entries = await runRedisCommand("ZREVRANGE", [LEADERBOARD_REDIS_KEY, 0, LEADERBOARD_LIMIT - 1, "WITHSCORES"]);
   leaderboard.clear();
   const ids = [];
@@ -264,7 +101,6 @@ async function loadLeaderboardFromRedis() {
 }
 
 async function persistLeaderboardEntry(entry) {
-  if (!redisEnabled) return;
   await runRedisCommand("ZADD", [LEADERBOARD_REDIS_KEY, entry.bestPoints, entry.id]);
   await runRedisCommand("HSET", [LEADERBOARD_META_REDIS_KEY, entry.id, JSON.stringify({ name: entry.name, updatedAt: entry.updatedAt })]);
   const total = Number(await runRedisCommand("ZCARD", [LEADERBOARD_REDIS_KEY])) || 0;
@@ -304,7 +140,7 @@ function buildPlayerName(baseName, playerId) {
 }
 
 app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true, leaderboardStorage, redisConnected: redisEnabled });
+  res.status(200).json({ ok: true, leaderboardStorage: "redis", redisConnected: Boolean(redisClient) });
 });
 
 app.get("/", (_req, res) => {
@@ -1067,16 +903,8 @@ io.on("connection", (socket) => {
 });
 
 async function startServer() {
-  try {
-    await connectRedis();
-    await loadLeaderboardFromRedis();
-    leaderboardStorage = "redis";
-  } catch (error) {
-    redisEnabled = false;
-    redisClient = null;
-    leaderboardStorage = "memory";
-    console.warn("[startup] Redis unavailable, continuing with in-memory leaderboard:", error.message);
-  }
+  await connectRedis();
+  await loadLeaderboardFromRedis();
 
   server.listen(PORT, HOST, () => {
     console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
