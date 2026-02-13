@@ -76,12 +76,21 @@ function logRedisEnvDiagnostics() {
 
 async function runRedisCommand(command, args = []) {
   if (!redisEnabled) return null;
-  const response = await fetch(`${REDIS_URL.replace(/\/$/, "")}/${command}/${args.map((arg) => encodeURIComponent(String(arg))).join("/")}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${REDIS_TOKEN}`
-    }
+  const url = buildRedisCommandUrl(command, args);
+
+  let response = await sendRedisRequest(url, {
+    Authorization: `Bearer ${REDIS_TOKEN}`,
+    "Upstash-Token": REDIS_TOKEN
   });
+
+  if (response.status === 401) {
+    console.warn(`[leaderboard] Redis ${command} returned 401 with Bearer auth. Retrying once with raw Authorization header.`);
+    response = await sendRedisRequest(url, {
+      Authorization: REDIS_TOKEN,
+      "Upstash-Token": REDIS_TOKEN
+    });
+  }
+
   if (!response.ok) {
     let details = "";
     try {
@@ -100,6 +109,7 @@ async function runRedisCommand(command, args = []) {
 
     throw new Error(`Redis request failed: ${response.status}${details}`);
   }
+
   const payload = await response.json();
   if (payload.error) {
     throw new Error(payload.error);
