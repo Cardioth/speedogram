@@ -1,36 +1,50 @@
 # speedogram
 
-Speed-o-Gram now runs on a Node.js server with Socket.IO so multiple players in the same Replit can play live side by side and see each other's game progress.
+Speed-o-Gram runs on a Node.js server with Socket.IO so players can play live side by side and see each other's game progress.
 
-## Replit setup (important)
-
-Use a **Node.js Repl** and keep these files in the project root:
-- `server.js`
-- `package.json`
-- `.replit`
-- `index.html` (or put it in `/public/index.html`)
-
-This repo is configured so Replit runs:
-
-```bash
-npm start
-```
-
-For **Deployments / Publish**, `.replit` also defines:
-- build command: `npm install`
-- run command: `npm start`
-
-The server binds to `0.0.0.0:$PORT` (Replit-friendly) and serves:
+The server binds to `0.0.0.0:$PORT` (Railway-friendly) and serves:
 - `/` -> `index.html`
 - `/health` -> health JSON
-
-If Replit says **"App is running but there is no page to preview"**, it usually means no HTTP server was detected on `$PORT`. The updated `server.js` now explicitly binds host + port and logs where static files are served from.
 
 ## Run locally
 
 1. `npm install`
-2. `npm start`
-3. Open `http://localhost:3000`
+2. (Optional, for persistent leaderboard) set Upstash REST secrets:
+   `export UPSTASH_REDIS_REST_URL="https://<region>-<id>.upstash.io"`
+   `export UPSTASH_REDIS_REST_TOKEN="<token>"`
+3. `npm start`
+4. Open `http://localhost:3000`
+
+## Persistent leaderboard with free Redis (Upstash)
+
+The leaderboard now supports Redis persistence via Upstash REST (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`). Without them, the app falls back to in-memory scores.
+
+To set up a free Redis instance:
+
+1. Create a free account at [Upstash](https://upstash.com/).
+2. Create a new **Redis** database (free tier).
+3. Open the database details and copy the **REST URL** and **REST Token**.
+4. Set it in your runtime environment:
+   - Local shell:
+     - `export UPSTASH_REDIS_REST_URL="<your-upstash-rest-url>"`
+     - `export UPSTASH_REDIS_REST_TOKEN="<your-upstash-rest-token>"`
+   - Railway Variables: add both variables with the same values.
+5. Restart the app.
+
+### Railway: where to put the secrets
+
+In Railway:
+1. Open your project.
+2. Go to your service.
+3. Open **Variables**.
+4. Add these keys:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+5. Save; Railway redeploys automatically.
+
+Do **not** commit these values into `server.js` or `README.md`.
+
+When connected, the server logs `[leaderboard] Connected to Redis.` and the top leaderboard entries survive restarts.
 
 ## Multiplayer behavior
 
