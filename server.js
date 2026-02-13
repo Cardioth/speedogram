@@ -49,7 +49,7 @@ function normalizeRedisToken(rawToken) {
 }
 
 const REDIS_URL = readEnv("REDIS_URL", "UPSTASH_REDIS_REST_URL", "KV_REST_API_URL");
-const REDIS_TOKEN = normalizeRedisToken(readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"));
+const REDIS_TOKEN = normalizeRedisToken(readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD"));
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
@@ -93,17 +93,57 @@ async function runRedisCommand(command, args = []) {
   if (!redisEnabled) return null;
   const url = buildRedisCommandUrl(command, args);
 
-  let response = await sendRedisRequest(url, {
-    Authorization: `Bearer ${REDIS_TOKEN}`,
-    "Upstash-Token": REDIS_TOKEN
-  });
+  const basicDefaultCredentials = Buffer.from(`default:${REDIS_TOKEN}`).toString("base64");
+  const basicPasswordOnlyCredentials = Buffer.from(`:${REDIS_TOKEN}`).toString("base64");
 
-  if (response.status === 401) {
-    console.warn(`[leaderboard] Redis ${command} returned 401 with Bearer auth. Retrying once with raw Authorization header.`);
-    response = await sendRedisRequest(url, {
-      Authorization: REDIS_TOKEN,
-      "Upstash-Token": REDIS_TOKEN
-    });
+  const authAttempts = [
+    {
+      label: "Bearer auth",
+      headers: {
+        Authorization: `Bearer ${REDIS_TOKEN}`,
+        "Upstash-Token": REDIS_TOKEN
+      }
+    },
+    {
+      label: "raw Authorization header",
+      headers: {
+        Authorization: REDIS_TOKEN,
+        "Upstash-Token": REDIS_TOKEN
+      }
+    },
+    {
+      label: "Basic auth (default user)",
+      headers: {
+        Authorization: `Basic ${basicDefaultCredentials}`
+      }
+    },
+    {
+      label: "Basic auth (password-only)",
+      headers: {
+        Authorization: `Basic ${basicPasswordOnlyCredentials}`
+      }
+    }
+  ];
+
+  let response = null;
+  let successfulAttemptLabel = "";
+
+  for (let index = 0; index < authAttempts.length; index += 1) {
+    const attempt = authAttempts[index];
+    response = await sendRedisRequest(url, attempt.headers);
+    if (response.status !== 401) {
+      successfulAttemptLabel = attempt.label;
+      break;
+    }
+
+    const hasNextAttempt = index < authAttempts.length - 1;
+    if (hasNextAttempt) {
+      console.warn(`[leaderboard] Redis ${command} returned 401 with ${attempt.label}. Retrying with ${authAttempts[index + 1].label}.`);
+    }
+  }
+
+  if (response.ok && successfulAttemptLabel && successfulAttemptLabel !== "Bearer auth") {
+    console.log(`[leaderboard] Redis ${command} succeeded with ${successfulAttemptLabel}.`);
   }
 
   if (!response.ok) {
@@ -119,7 +159,7 @@ async function runRedisCommand(command, args = []) {
     console.error(`[leaderboard] Redis request URL: ${REDIS_URL.replace(/\/$/, "")}/${command}`);
 
     if (response.status === 401) {
-      throw new Error("Redis request failed: 401 (Unauthorized). Check token value and ensure it is the raw Upstash REST token (no 'Bearer ' prefix). See [leaderboard][env] logs above.");
+      throw new Error("Redis request failed: 401 (Unauthorized). Check token value and ensure it is either the Upstash REST token or Redis password for this database (no 'Bearer ' prefix). See [leaderboard][env] logs above.");
     }
 
     throw new Error(`Redis request failed: ${response.status}${details}`);
