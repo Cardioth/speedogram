@@ -30,15 +30,21 @@ const waitingQueue = [];
 const matches = new Map();
 const leaderboard = new Map();
 const LEADERBOARD_LIMIT = 10;
-const REDIS_URL = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+function readEnv(...keys) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+const REDIS_URL = readEnv("REDIS_URL", "UPSTASH_REDIS_REST_URL", "KV_REST_API_URL");
+const REDIS_TOKEN = readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN");
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
-
-function useRedisLeaderboard() {
-  return Boolean(REDIS_URL);
-}
 
 async function runRedisCommand(command, args = []) {
   if (!redisEnabled) return null;
@@ -59,14 +65,12 @@ async function runRedisCommand(command, args = []) {
 }
 
 async function connectRedis() {
-  if (!useRedisLeaderboard()) {
-    console.log("[leaderboard] Upstash Redis REST credentials not configured; using in-memory leaderboard.");
-    return;
+  if (!REDIS_URL) {
+    throw new Error("[leaderboard] Missing Redis URL. Set UPSTASH_REDIS_REST_URL (or REDIS_URL/KV_REST_API_URL).");
   }
 
   if (!REDIS_TOKEN) {
-    console.log("[leaderboard] UPSTASH_REDIS_REST_TOKEN missing; using in-memory leaderboard.");
-    return;
+    throw new Error("[leaderboard] Missing Redis token. Set UPSTASH_REDIS_REST_TOKEN (or KV_REST_API_TOKEN/REDIS_TOKEN).");
   }
 
   redisEnabled = true;
@@ -149,7 +153,7 @@ function buildPlayerName(baseName, playerId) {
 }
 
 app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true });
+  res.status(200).json({ ok: true, leaderboardStorage: "redis", redisConnected: redisEnabled });
 });
 
 app.get("/", (_req, res) => {
@@ -912,13 +916,8 @@ io.on("connection", (socket) => {
 });
 
 async function startServer() {
-  try {
-    await connectRedis();
-    await loadLeaderboardFromRedis();
-  } catch (error) {
-    console.error("[leaderboard] Falling back to in-memory leaderboard:", error.message);
-    redisEnabled = false;
-  }
+  await connectRedis();
+  await loadLeaderboardFromRedis();
 
   server.listen(PORT, HOST, () => {
     console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
@@ -926,4 +925,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((error) => {
+  console.error("[startup] Failed to start server:", error.message);
+  process.exit(1);
+});
