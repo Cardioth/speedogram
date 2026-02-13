@@ -48,8 +48,50 @@ function normalizeRedisToken(rawToken) {
   return unquoted.replace(/^Bearer\s+/i, "").trim();
 }
 
-const REDIS_URL = readEnv("REDIS_URL", "UPSTASH_REDIS_REST_URL", "KV_REST_API_URL");
-const REDIS_TOKEN = normalizeRedisToken(readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD"));
+function resolveRedisConfig() {
+  const pairs = [
+    {
+      urlKey: "UPSTASH_REDIS_REST_URL",
+      tokenKeys: ["UPSTASH_REDIS_REST_TOKEN", "UPSTASH_REDIS_PASSWORD"]
+    },
+    {
+      urlKey: "KV_REST_API_URL",
+      tokenKeys: ["KV_REST_API_TOKEN"]
+    },
+    {
+      urlKey: "REDIS_URL",
+      tokenKeys: ["REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"]
+    }
+  ];
+
+  for (const pair of pairs) {
+    const url = readEnv(pair.urlKey);
+    if (!url) continue;
+
+    const token = normalizeRedisToken(readEnv(...pair.tokenKeys));
+    const tokenSource = pair.tokenKeys.find((key) => typeof process.env[key] === "string" && process.env[key].trim()) || "<none>";
+
+    return {
+      url,
+      urlSource: pair.urlKey,
+      token,
+      tokenSource,
+      expectedTokenKeys: pair.tokenKeys
+    };
+  }
+
+  return {
+    url: "",
+    urlSource: "<none>",
+    token: normalizeRedisToken(readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD")),
+    tokenSource: "<none>",
+    expectedTokenKeys: ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD"]
+  };
+}
+
+const redisConfig = resolveRedisConfig();
+const REDIS_URL = redisConfig.url;
+const REDIS_TOKEN = redisConfig.token;
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
@@ -63,17 +105,13 @@ function maskTokenPreview(token) {
 }
 
 function logRedisEnvDiagnostics() {
-  const urlSources = ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL"];
-  const tokenSources = ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD"];
-  const selectedUrlKey = urlSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
-  const selectedTokenKey = tokenSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
-
-  console.log(`[leaderboard][env] URL source: ${selectedUrlKey || "<none>"}`);
-  console.log(`[leaderboard][env] TOKEN source: ${selectedTokenKey || "<none>"}`);
+  console.log(`[leaderboard][env] URL source: ${redisConfig.urlSource}`);
+  console.log(`[leaderboard][env] TOKEN source: ${redisConfig.tokenSource}`);
   console.log(`[leaderboard][env] URL present: ${Boolean(REDIS_URL)} value: ${REDIS_URL || "<empty>"}`);
   console.log(`[leaderboard][env] TOKEN present: ${Boolean(REDIS_TOKEN)} length: ${REDIS_TOKEN.length} preview: ${maskTokenPreview(REDIS_TOKEN)}`);
-  if (REDIS_TOKEN.toLowerCase().startsWith("bearer ")) {
-    console.warn("[leaderboard][env] Token starts with 'Bearer '. Use raw Upstash token only.");
+
+  if (REDIS_URL && redisConfig.tokenSource === "<none>") {
+    console.warn(`[leaderboard][env] URL is set via ${redisConfig.urlSource}, but no matching token is set. Expected one of: ${redisConfig.expectedTokenKeys.join(", ")}`);
   }
 }
 
