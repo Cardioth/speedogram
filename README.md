@@ -9,7 +9,7 @@ The server binds to `0.0.0.0:$PORT` (Railway-friendly) and serves:
 ## Run locally
 
 1. `npm install`
-2. (Optional, for persistent leaderboard) set Upstash REST secrets:
+2. Set Upstash REST secrets:
    `export UPSTASH_REDIS_REST_URL="https://<region>-<id>.upstash.io"`
    `export UPSTASH_REDIS_REST_TOKEN="<token>"`
 3. `npm start`
@@ -17,7 +17,7 @@ The server binds to `0.0.0.0:$PORT` (Railway-friendly) and serves:
 
 ## Persistent leaderboard with free Redis (Upstash)
 
-The leaderboard now supports Redis persistence via Upstash REST (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`). If you only have the Redis password, you can set `UPSTASH_REDIS_PASSWORD` instead. Without any of these, the app falls back to in-memory scores.
+The leaderboard uses Redis persistence via Upstash REST (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`). If you only have the Redis password, you can set `UPSTASH_REDIS_PASSWORD` instead. Redis configuration is required at startup.
 
 To set up a free Redis instance:
 
