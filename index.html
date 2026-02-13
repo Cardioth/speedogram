@@ -1409,11 +1409,17 @@ function applyServerState(state){
     setShopVisible(false);
     lastShopRenderKey = "";
   } else if(gameMode === "shop") {
-    setMatchStatus("Shop: choose 1 upgrade for next round.");
+    if(hasPurchasedThisShop){
+      setMatchStatus("Waiting for other player...");
+      setShopVisible(false);
+      lastShopRenderKey = "";
+    } else {
+      setMatchStatus("Shop: choose 1 upgrade for next round.");
+      setShopVisible(true);
+    }
     if(shopTitleEl){
       shopTitleEl.textContent = "Round " + currentRound + " Shop";
     }
-    setShopVisible(true);
   } else if(gameMode === "gameOver") {
     setMatchStatus(winnerText || "Game over. Click Start to request a rematch.");
     setShopVisible(false);
