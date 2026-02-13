@@ -76,25 +76,17 @@ function logRedisEnvDiagnostics() {
   }
 }
 
-function maskTokenPreview(token) {
-  if (!token) return "<empty>";
-  if (token.length <= 8) return "*".repeat(token.length);
-  return `${token.slice(0, 4)}...${token.slice(-4)}`;
+function buildRedisCommandUrl(command, args = []) {
+  const baseUrl = REDIS_URL.replace(/\/$/, "");
+  const encodedArgs = args.map((arg) => encodeURIComponent(String(arg)));
+  return `${baseUrl}/${[command, ...encodedArgs].join("/")}`;
 }
 
-function logRedisEnvDiagnostics() {
-  const urlSources = ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL"];
-  const tokenSources = ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"];
-  const selectedUrlKey = urlSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
-  const selectedTokenKey = tokenSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
-
-  console.log(`[leaderboard][env] URL source: ${selectedUrlKey || "<none>"}`);
-  console.log(`[leaderboard][env] TOKEN source: ${selectedTokenKey || "<none>"}`);
-  console.log(`[leaderboard][env] URL present: ${Boolean(REDIS_URL)} value: ${REDIS_URL || "<empty>"}`);
-  console.log(`[leaderboard][env] TOKEN present: ${Boolean(REDIS_TOKEN)} length: ${REDIS_TOKEN.length} preview: ${maskTokenPreview(REDIS_TOKEN)}`);
-  if (REDIS_TOKEN.toLowerCase().startsWith("bearer ")) {
-    console.warn("[leaderboard][env] Token starts with 'Bearer '. Use raw Upstash token only.");
-  }
+async function sendRedisRequest(url, headers) {
+  return fetch(url, {
+    method: "POST",
+    headers
+  });
 }
 
 async function runRedisCommand(command, args = []) {
@@ -130,7 +122,7 @@ async function runRedisCommand(command, args = []) {
       throw new Error("Redis request failed: 401 (Unauthorized). Check token value and ensure it is the raw Upstash REST token (no 'Bearer ' prefix). See [leaderboard][env] logs above.");
     }
 
-    throw error;
+    throw new Error(`Redis request failed: ${response.status}${details}`);
   }
 
   const payload = await response.json();
