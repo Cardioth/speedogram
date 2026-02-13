@@ -118,7 +118,7 @@
     line-height: 1.4;
   }
   #multiplayerPanel {
-    width: min(960px, calc(100vw - 32px));
+    width: min(900px, calc(100vw - 42px));
     margin: 14px auto 0;
     color: var(--text);
     display: flex;
@@ -133,9 +133,10 @@
     background: var(--panel);
     backdrop-filter: blur(4px);
     padding: 10px 12px;
-    width: 430px;
+    width: calc((100% - 12px) / 2);
     min-height: 74px;
     box-shadow: var(--shadow);
+    box-sizing: border-box;
   }
   #helpLinkWrap {
     width: 900px;
@@ -310,6 +311,11 @@
     color: var(--text);
     font-size: 13px;
     z-index: 3;
+    background: #0f1940;
+    border: 1px solid rgba(127, 182, 255, 0.7);
+    border-radius: 16px;
+    padding: 18px 16px;
+    box-shadow: 0 20px 40px rgba(3, 8, 30, 0.7);
   }
   #shopTitle {
     margin-bottom: 12px;
@@ -329,34 +335,38 @@
     color: var(--text);
     width: 190px;
     height: 190px;
-    padding: 14px;
+    padding: 0;
     cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 12px;
+    position: relative;
     font-size: 14px;
     line-height: 1.35;
     box-shadow: 0 10px 20px rgba(4, 10, 34, 0.45);
   }
   .shopChoiceBtn .shopChoiceIcon {
-    width: 60px;
-    height: 60px;
-    border-radius: 14px;
-    border: 2px dashed rgba(126, 194, 255, 0.65);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    letter-spacing: 0.8px;
-    color: #a8d5ff;
-    text-transform: uppercase;
-    background: rgba(82, 182, 255, 0.08);
+    position: absolute;
+    top: 34%;
+    left: 50%;
+    width: 56px;
+    height: 56px;
+    transform: translate(-50%, -50%);
+    color: var(--accent);
+  }
+  .shopChoiceBtn .shopChoiceIcon::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    border-radius: 42% 58% 52% 48% / 56% 42% 58% 44%;
+    opacity: 0.95;
   }
   .shopChoiceBtn .shopChoiceText {
+    position: absolute;
+    top: 75%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: block;
     max-width: 150px;
+    text-align: center;
   }
   .shopChoiceBtn:disabled {
     opacity: 0.6;
@@ -490,6 +500,7 @@ var timeIncrement = 700;
 var score = 0;
 var points = 0;
 var currentRound = 1;
+var totalRounds = 5;
 var winnerText = "";
 
 var socket = typeof io !== "undefined" ? io() : null;
@@ -634,7 +645,7 @@ function renderShopChoices(){
     return;
   }
   shopChoicesEl.innerHTML = "";
-  if(!shopOptions || !shopOptions.length){
+  if(!shopOptions || !shopOptions.length || hasPurchasedThisShop){
     return;
   }
   for(var i = 0; i < shopOptions.length; i++){
@@ -643,7 +654,6 @@ function renderShopChoices(){
       button.className = "shopChoiceBtn";
       var iconPlaceholder = document.createElement("span");
       iconPlaceholder.className = "shopChoiceIcon";
-      iconPlaceholder.textContent = "Icon";
       var label = document.createElement("span");
       label.className = "shopChoiceText";
       label.textContent = option.label;
@@ -930,7 +940,7 @@ function enterFrame(){
   ctx.font = "14px Arial";
   ctx.fillStyle = CANVAS_ACCENT;
   var timeLabel = "Time: " + sharedTimeRemaining;
-  var roundLabel = "Round: " + currentRound + "/6";
+  var roundLabel = "Round: " + currentRound + "/" + totalRounds;
   ctx.fillText(timeLabel, timerCenterX - (ctx.measureText(timeLabel).width / 2), 142);
   ctx.fillText(roundLabel, timerCenterX - (ctx.measureText(roundLabel).width / 2), 160);
 
@@ -1391,7 +1401,7 @@ function applyServerState(state){
     setShopVisible(false);
     lastShopRenderKey = "";
   } else if(gameMode === "play") {
-    setMatchStatus("Round " + currentRound + "/6: Playing against " + (opponentDisplayName || "opponent"));
+    setMatchStatus("Round " + currentRound + "/" + totalRounds + ": Playing against " + (opponentDisplayName || "opponent"));
     setShopVisible(false);
     lastShopRenderKey = "";
   } else if(gameMode === "roundOver") {

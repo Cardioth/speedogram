@@ -15,7 +15,7 @@ const GRID_SIZE_INTERVALS = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 
 const TIME_LIMIT_INIT = 12000;
 const TIME_INCREMENT = 0;
 const MATCH_COUNTDOWN_MS = 3000;
-const TOTAL_ROUNDS = 6;
+const TOTAL_ROUNDS = 5;
 const UPGRADE_DEFS = [
   { id: "extra-second-per-solve", label: "+1 second more time per puzzle solved" },
   { id: "start-revealed-cell", label: "+one cell starts already revealed" },
@@ -126,6 +126,109 @@ function makePuzzle(gridSize) {
   return { grid, gridGuesses, columnsTotal, rowsTotal, Xcounters, Ycounters };
 }
 
+function hashSeed(input) {
+  const source = String(input || "seed");
+  let hash = 1779033703;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = Math.imul(hash ^ source.charCodeAt(i), 3432918353);
+    hash = (hash << 13) | (hash >>> 19);
+  }
+  return (hash >>> 0) || 1;
+}
+
+function makeSeededRandom(seedInput) {
+  let state = hashSeed(seedInput);
+  return function random() {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makePuzzleWithRandom(gridSize, randomFn) {
+  const grid = [];
+  const gridGuesses = [];
+  const columnsTotal = [];
+  const rowsTotal = [];
+  const Xcounters = [];
+  const Ycounters = [];
+
+  for (let i = 0; i < gridSize; i += 1) {
+    const gridX = [];
+    const gridGuessesX = [];
+    for (let j = 0; j < gridSize; j += 1) {
+      let randomNumber = Math.floor(randomFn() * 3);
+      if (randomNumber > 1) randomNumber = 1;
+      gridX.push(randomNumber);
+      gridGuessesX.push(0);
+    }
+    grid.push(gridX);
+    gridGuesses.push(gridGuessesX);
+  }
+
+  for (let i = 0; i < gridSize; i += 1) {
+    const column = [];
+    let count = 0;
+    let countTotal = 0;
+    for (let j = 0; j < gridSize; j += 1) {
+      if (grid[i][j] === 1) {
+        count += 1;
+        countTotal += 1;
+      } else if (count > 0) {
+        column.push(count);
+        count = 0;
+      }
+    }
+    if (count > 0) column.push(count);
+    columnsTotal.push(countTotal);
+    Xcounters.push(column);
+  }
+
+  for (let i = 0; i < gridSize; i += 1) {
+    const row = [];
+    let count = 0;
+    let countTotal = 0;
+    for (let j = 0; j < gridSize; j += 1) {
+      if (grid[j][i] === 1) {
+        count += 1;
+        countTotal += 1;
+        if (j === gridSize - 1) row.push(count);
+      } else if (count !== 0) {
+        row.push(count);
+        count = 0;
+      }
+    }
+    rowsTotal.push(countTotal);
+    Ycounters.push(row);
+  }
+
+  return { grid, gridGuesses, columnsTotal, rowsTotal, Xcounters, Ycounters };
+}
+
+function clonePuzzle(puzzle) {
+  return {
+    grid: puzzle.grid.map((column) => column.slice()),
+    gridGuesses: puzzle.gridGuesses.map((column) => column.slice()),
+    columnsTotal: puzzle.columnsTotal.slice(),
+    rowsTotal: puzzle.rowsTotal.slice(),
+    Xcounters: puzzle.Xcounters.map((counts) => counts.slice()),
+    Ycounters: puzzle.Ycounters.map((counts) => counts.slice())
+  };
+}
+
+function getRoundPuzzle(match, round, level, gridSize) {
+  if (!match.roundPuzzleCache) {
+    match.roundPuzzleCache = new Map();
+  }
+  const key = `${round}:${level}:${gridSize}`;
+  if (!match.roundPuzzleCache.has(key)) {
+    const seededRandom = makeSeededRandom(`${match.id}:${key}`);
+    match.roundPuzzleCache.set(key, makePuzzleWithRandom(gridSize, seededRandom));
+  }
+  return clonePuzzle(match.roundPuzzleCache.get(key));
+}
+
 function chooseRandomUpgrades(count = 3) {
   const pool = [...UPGRADE_DEFS];
   const selected = [];
@@ -153,7 +256,7 @@ function revealInitialCells(state) {
   }
 }
 
-function configureRoundState(state) {
+function configureRoundState(match, state) {
   const roundBonus = state.nextRoundPointBonus || 0;
   const incomingPenalty = state.incomingStartPenaltyMs || 0;
 
@@ -170,7 +273,7 @@ function configureRoundState(state) {
   state.timeLimit = Math.max(3000, baseTime);
 
   state.puzzleId = (state.puzzleId || 0) + 1;
-  Object.assign(state, makePuzzle(state.gridSize));
+  Object.assign(state, getRoundPuzzle(match, state.round, state.level, state.gridSize));
   state.bombCell = null;
   state.bombActive = Boolean(state.incomingBombNextRound);
   state.incomingBombNextRound = false;
@@ -361,7 +464,7 @@ function updateGridSize(state) {
   state.gridSize = GRID_SIZE_INTERVALS[state.level] || GRID_SIZE_INTERVALS[GRID_SIZE_INTERVALS.length - 1];
 }
 
-function checkVictory(state) {
+function checkVictory(match, state) {
   const totalGridSize = state.gridSize * state.gridSize;
   let totalGuesses = 0;
   for (let i = 0; i < state.gridSize; i += 1) {
@@ -379,12 +482,12 @@ function checkVictory(state) {
     state.timeLimit += TIME_INCREMENT + (state.perSolveTimeBonusMs || 0);
     updateGridSize(state);
     state.puzzleId = (state.puzzleId || 0) + 1;
-    Object.assign(state, makePuzzle(state.gridSize));
+    Object.assign(state, getRoundPuzzle(match, state.round, state.level, state.gridSize));
     revealInitialCells(state);
   }
 }
 
-function applyAction(state, x, y, button) {
+function applyAction(match, state, x, y, button) {
   if (state.gameMode !== "play") return;
   if (!Number.isInteger(x) || !Number.isInteger(y)) return;
   if (x < 0 || y < 0 || x >= state.gridSize || y >= state.gridSize) return;
@@ -429,7 +532,7 @@ function applyAction(state, x, y, button) {
     return;
   }
 
-  checkVictory(state);
+  checkVictory(match, state);
 }
 
 function enterShop(match) {
@@ -467,7 +570,7 @@ function startNextRound(match) {
     state.gameMode = "countdown";
     state.shopOptions = [];
     state.hasPurchasedThisShop = false;
-    configureRoundState(state);
+    configureRoundState(match, state);
   });
 }
 
@@ -525,10 +628,11 @@ function maybeStartMatchmaking() {
       },
       rematchVotes: new Set(),
       status: "countdown",
-      roundStartsAt: Date.now() + MATCH_COUNTDOWN_MS
+      roundStartsAt: Date.now() + MATCH_COUNTDOWN_MS,
+      roundPuzzleCache: new Map()
     };
-    configureRoundState(match.states[p1Id]);
-    configureRoundState(match.states[p2Id]);
+    configureRoundState(match, match.states[p1Id]);
+    configureRoundState(match, match.states[p2Id]);
     matches.set(matchId, match);
     p1.matchId = matchId;
     p2.matchId = matchId;
@@ -647,7 +751,7 @@ io.on("connection", (socket) => {
     const match = matches.get(player.matchId);
     if (!match || match.status !== "play") return;
     const state = match.states[socket.id];
-    applyAction(state, incoming?.x, incoming?.y, incoming?.button);
+    applyAction(match, state, incoming?.x, incoming?.y, incoming?.button);
     emitMatchState(match);
   });
 
@@ -664,9 +768,10 @@ io.on("connection", (socket) => {
 
     if (match.players.every((playerId) => match.rematchVotes.has(playerId))) {
       match.round = 1;
+      match.roundPuzzleCache = new Map();
       match.players.forEach((playerId) => {
         match.states[playerId] = makePlayerState("countdown");
-        configureRoundState(match.states[playerId]);
+        configureRoundState(match, match.states[playerId]);
       });
       match.status = "countdown";
       match.roundStartsAt = Date.now() + MATCH_COUNTDOWN_MS;
