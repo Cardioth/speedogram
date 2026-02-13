@@ -30,6 +30,103 @@ const waitingQueue = [];
 const matches = new Map();
 const leaderboard = new Map();
 const LEADERBOARD_LIMIT = 10;
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL || "";
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
+const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
+let redisEnabled = false;
+
+function useRedisLeaderboard() {
+  return Boolean(REDIS_URL) && /^https?:\/\//i.test(REDIS_URL);
+}
+
+async function runRedisCommand(command, args = []) {
+  if (!redisEnabled) return null;
+  const response = await fetch(`${REDIS_URL.replace(/\/$/, "")}/${command}/${args.map((arg) => encodeURIComponent(String(arg))).join("/")}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${REDIS_TOKEN}`
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`Redis request failed: ${response.status}`);
+  }
+  const payload = await response.json();
+  if (payload.error) {
+    throw new Error(payload.error);
+  }
+  return payload.result;
+}
+
+async function connectRedis() {
+  if (!REDIS_URL) {
+    console.log("[leaderboard] Upstash Redis REST credentials not configured; using in-memory leaderboard.");
+    return;
+  }
+
+  if (!useRedisLeaderboard()) {
+    console.log("[leaderboard] Redis URL is not an Upstash REST URL (must start with http/https); using in-memory leaderboard.");
+    return;
+  }
+
+  if (!REDIS_TOKEN) {
+    console.log("[leaderboard] UPSTASH_REDIS_REST_TOKEN missing; using in-memory leaderboard.");
+    return;
+  }
+
+  redisEnabled = true;
+  await runRedisCommand("PING");
+  console.log("[leaderboard] Connected to Redis.");
+}
+
+async function loadLeaderboardFromRedis() {
+  if (!redisEnabled) return;
+  const entries = await runRedisCommand("ZREVRANGE", [LEADERBOARD_REDIS_KEY, 0, LEADERBOARD_LIMIT - 1, "WITHSCORES"]);
+  leaderboard.clear();
+  const ids = [];
+  const scoreMap = new Map();
+
+  for (let index = 0; index < entries.length; index += 2) {
+    const id = entries[index];
+    const score = Number(entries[index + 1]) || 0;
+    ids.push(id);
+    scoreMap.set(id, score);
+  }
+
+  const metaRecords = ids.length ? await runRedisCommand("HMGET", [LEADERBOARD_META_REDIS_KEY, ...ids]) : [];
+
+  ids.forEach((id, index) => {
+    let parsed = {};
+    if (metaRecords[index]) {
+      try {
+        parsed = JSON.parse(metaRecords[index]);
+      } catch (_error) {
+        parsed = {};
+      }
+    }
+    leaderboard.set(id, {
+      id,
+      name: parsed.name || "Anon",
+      bestPoints: Math.max(0, Math.floor(scoreMap.get(id) || 0)),
+      updatedAt: Number(parsed.updatedAt) || Date.now()
+    });
+  });
+}
+
+async function persistLeaderboardEntry(entry) {
+  if (!redisEnabled) return;
+  await runRedisCommand("ZADD", [LEADERBOARD_REDIS_KEY, entry.bestPoints, entry.id]);
+  await runRedisCommand("HSET", [LEADERBOARD_META_REDIS_KEY, entry.id, JSON.stringify({ name: entry.name, updatedAt: entry.updatedAt })]);
+  const total = Number(await runRedisCommand("ZCARD", [LEADERBOARD_REDIS_KEY])) || 0;
+  const entriesOverLimit = total - LEADERBOARD_LIMIT;
+  if (entriesOverLimit > 0) {
+    const removedIds = await runRedisCommand("ZRANGE", [LEADERBOARD_REDIS_KEY, 0, entriesOverLimit - 1]);
+    if (removedIds.length) {
+      await runRedisCommand("HDEL", [LEADERBOARD_META_REDIS_KEY, ...removedIds]);
+    }
+    await runRedisCommand("ZREMRANGEBYRANK", [LEADERBOARD_REDIS_KEY, 0, entriesOverLimit - 1]);
+  }
+}
 
 function makePlayerTag(playerId) {
   return String(playerId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-4) || "0000";
@@ -373,11 +470,15 @@ function updateLeaderboardEntry(playerId, displayName, points) {
   if (safePoints <= 0) return;
   const existing = leaderboard.get(playerId);
   if (!existing || safePoints > existing.bestPoints) {
-    leaderboard.set(playerId, {
+    const entry = {
       id: playerId,
       name: displayName,
       bestPoints: safePoints,
       updatedAt: Date.now()
+    };
+    leaderboard.set(playerId, entry);
+    persistLeaderboardEntry(entry).catch((error) => {
+      console.error("[leaderboard] Failed to persist leaderboard entry:", error.message);
     });
   }
 }
@@ -815,7 +916,19 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
-  console.log(`Serving static files from ${STATIC_DIR}`);
-});
+async function startServer() {
+  try {
+    await connectRedis();
+    await loadLeaderboardFromRedis();
+  } catch (error) {
+    console.error("[leaderboard] Falling back to in-memory leaderboard:", error.message);
+    redisEnabled = false;
+  }
+
+  server.listen(PORT, HOST, () => {
+    console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
+    console.log(`Serving static files from ${STATIC_DIR}`);
+  });
+}
+
+startServer();
