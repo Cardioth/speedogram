@@ -42,8 +42,6 @@ In Railway:
    - `UPSTASH_REDIS_REST_TOKEN`
 5. Save; Railway redeploys automatically.
 
-If your service already has a generic `REDIS_URL` (for a different provider), keep `UPSTASH_REDIS_REST_URL` set to the Upstash **REST** endpoint (`https://...upstash.io`) so leaderboard writes use the correct API.
-
 Do **not** commit these values into `server.js` or `README.md`.
 
 When connected, the server logs `[leaderboard] Connected to Redis.` and the top leaderboard entries survive restarts.

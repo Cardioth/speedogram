@@ -30,14 +30,14 @@ const waitingQueue = [];
 const matches = new Map();
 const leaderboard = new Map();
 const LEADERBOARD_LIMIT = 10;
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL || "";
+const REDIS_URL = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL || "";
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
 
 function useRedisLeaderboard() {
-  return Boolean(REDIS_URL) && /^https?:\/\//i.test(REDIS_URL);
+  return Boolean(REDIS_URL);
 }
 
 async function runRedisCommand(command, args = []) {
@@ -59,13 +59,8 @@ async function runRedisCommand(command, args = []) {
 }
 
 async function connectRedis() {
-  if (!REDIS_URL) {
-    console.log("[leaderboard] Upstash Redis REST credentials not configured; using in-memory leaderboard.");
-    return;
-  }
-
   if (!useRedisLeaderboard()) {
-    console.log("[leaderboard] Redis URL is not an Upstash REST URL (must start with http/https); using in-memory leaderboard.");
+    console.log("[leaderboard] Upstash Redis REST credentials not configured; using in-memory leaderboard.");
     return;
   }
 
