@@ -54,6 +54,7 @@ const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
 let redisClient = null;
+let leaderboardStorage = "memory";
 
 function maskTokenPreview(token) {
   if (!token) return "<empty>";
@@ -63,7 +64,7 @@ function maskTokenPreview(token) {
 
 function logRedisEnvDiagnostics() {
   const urlSources = ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL"];
-  const tokenSources = ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"];
+  const tokenSources = ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD"];
   const selectedUrlKey = urlSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
   const selectedTokenKey = tokenSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
 
@@ -265,7 +266,7 @@ function buildPlayerName(baseName, playerId) {
 }
 
 app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true, leaderboardStorage: "redis", redisConnected: redisEnabled });
+  res.status(200).json({ ok: true, leaderboardStorage, redisConnected: redisEnabled });
 });
 
 app.get("/", (_req, res) => {
@@ -1028,8 +1029,16 @@ io.on("connection", (socket) => {
 });
 
 async function startServer() {
-  await connectRedis();
-  await loadLeaderboardFromRedis();
+  try {
+    await connectRedis();
+    await loadLeaderboardFromRedis();
+    leaderboardStorage = "redis";
+  } catch (error) {
+    redisEnabled = false;
+    redisClient = null;
+    leaderboardStorage = "memory";
+    console.warn("[startup] Redis unavailable, continuing with in-memory leaderboard:", error.message);
+  }
 
   server.listen(PORT, HOST, () => {
     console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
