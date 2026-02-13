@@ -17,7 +17,7 @@ The server binds to `0.0.0.0:$PORT` (Railway-friendly) and serves:
 
 ## Persistent leaderboard with free Redis (Upstash)
 
-The leaderboard now supports Redis persistence via Upstash REST (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`). Without them, the app falls back to in-memory scores.
+The leaderboard now supports Redis persistence via Upstash REST (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`). If you only have the Redis password, you can set `UPSTASH_REDIS_PASSWORD` instead. Without any of these, the app falls back to in-memory scores.
 
 To set up a free Redis instance:
 
@@ -39,7 +39,7 @@ In Railway:
 3. Open **Variables**.
 4. Add these keys:
    - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
+   - `UPSTASH_REDIS_REST_TOKEN` (or `UPSTASH_REDIS_PASSWORD` if you only have the DB password)
 5. Save; Railway redeploys automatically.
 
 Do **not** commit these values into `server.js` or `README.md`.
