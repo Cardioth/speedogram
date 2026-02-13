@@ -40,11 +40,32 @@ function readEnv(...keys) {
   return "";
 }
 
-const REDIS_URL = readEnv("REDIS_URL", "UPSTASH_REDIS_REST_URL", "KV_REST_API_URL");
+const REDIS_URL = readEnv("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL");
 const REDIS_TOKEN = readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN");
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
 let redisEnabled = false;
+
+function maskTokenPreview(token) {
+  if (!token) return "<empty>";
+  if (token.length <= 8) return "*".repeat(token.length);
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
+}
+
+function logRedisEnvDiagnostics() {
+  const urlSources = ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_URL"];
+  const tokenSources = ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_TOKEN"];
+  const selectedUrlKey = urlSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
+  const selectedTokenKey = tokenSources.find((key) => typeof process.env[key] === "string" && process.env[key].trim());
+
+  console.log(`[leaderboard][env] URL source: ${selectedUrlKey || "<none>"}`);
+  console.log(`[leaderboard][env] TOKEN source: ${selectedTokenKey || "<none>"}`);
+  console.log(`[leaderboard][env] URL present: ${Boolean(REDIS_URL)} value: ${REDIS_URL || "<empty>"}`);
+  console.log(`[leaderboard][env] TOKEN present: ${Boolean(REDIS_TOKEN)} length: ${REDIS_TOKEN.length} preview: ${maskTokenPreview(REDIS_TOKEN)}`);
+  if (REDIS_TOKEN.toLowerCase().startsWith("bearer ")) {
+    console.warn("[leaderboard][env] Token starts with 'Bearer '. Use raw Upstash token only.");
+  }
+}
 
 async function runRedisCommand(command, args = []) {
   if (!redisEnabled) return null;
@@ -63,8 +84,11 @@ async function runRedisCommand(command, args = []) {
       details = "";
     }
 
+    console.error(`[leaderboard] Redis ${command} failed with status ${response.status}${details}`);
+    console.error(`[leaderboard] Redis request URL: ${REDIS_URL.replace(/\/$/, "")}/${command}`);
+
     if (response.status === 401) {
-      throw new Error("Redis request failed: 401 (Unauthorized). Check that your token is correct and does not include an extra 'Bearer ' prefix.");
+      throw new Error("Redis request failed: 401 (Unauthorized). Check token value and ensure it is the raw Upstash REST token (no 'Bearer ' prefix). See [leaderboard][env] logs above.");
     }
 
     throw new Error(`Redis request failed: ${response.status}${details}`);
@@ -77,8 +101,10 @@ async function runRedisCommand(command, args = []) {
 }
 
 async function connectRedis() {
+  logRedisEnvDiagnostics();
+
   if (!REDIS_URL) {
-    throw new Error("[leaderboard] Missing Redis URL. Set UPSTASH_REDIS_REST_URL (or REDIS_URL/KV_REST_API_URL).");
+    throw new Error("[leaderboard] Missing Redis URL. Set UPSTASH_REDIS_REST_URL (or KV_REST_API_URL/REDIS_URL).");
   }
 
   if (!REDIS_TOKEN) {
@@ -86,6 +112,7 @@ async function connectRedis() {
   }
 
   redisEnabled = true;
+  console.log(`[leaderboard] Connecting to Redis via ${REDIS_URL.replace(/\/$/, "")}`);
   await runRedisCommand("PING");
   console.log("[leaderboard] Connected to Redis.");
 }
