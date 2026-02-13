@@ -55,7 +55,19 @@ async function runRedisCommand(command, args = []) {
     }
   });
   if (!response.ok) {
-    throw new Error(`Redis request failed: ${response.status}`);
+    let details = "";
+    try {
+      const errorPayload = await response.json();
+      details = errorPayload?.error ? ` - ${errorPayload.error}` : "";
+    } catch (_error) {
+      details = "";
+    }
+
+    if (response.status === 401) {
+      throw new Error("Redis request failed: 401 (Unauthorized). Check that your token is correct and does not include an extra 'Bearer ' prefix.");
+    }
+
+    throw new Error(`Redis request failed: ${response.status}${details}`);
   }
   const payload = await response.json();
   if (payload.error) {
