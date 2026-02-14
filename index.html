@@ -318,9 +318,14 @@
     box-shadow: 0 20px 40px rgba(3, 8, 30, 0.7);
   }
   #shopTitle {
-    margin-bottom: 12px;
+    margin-bottom: 4px;
     font-size: 16px;
     letter-spacing: 0.3px;
+  }
+  #shopPoints {
+    margin-bottom: 12px;
+    color: #a9d8ff;
+    font-size: 13px;
   }
   #shopChoices {
     display: flex;
@@ -372,6 +377,27 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+  .shopChoiceBtn--common {
+    border-color: rgba(99, 219, 147, 0.9);
+    background: rgba(16, 65, 41, 0.92);
+  }
+  .shopChoiceBtn--common .shopChoiceIcon {
+    color: #5ce184;
+  }
+  .shopChoiceBtn--rare {
+    border-color: rgba(114, 186, 255, 0.9);
+    background: rgba(14, 43, 85, 0.92);
+  }
+  .shopChoiceBtn--rare .shopChoiceIcon {
+    color: #61b5ff;
+  }
+  .shopChoiceBtn--epic {
+    border-color: rgba(198, 132, 255, 0.9);
+    background: rgba(58, 27, 92, 0.92);
+  }
+  .shopChoiceBtn--epic .shopChoiceIcon {
+    color: #c888ff;
+  }
   #matchStatus {
     color: var(--text-muted) !important;
     letter-spacing: 0.2px;
@@ -396,6 +422,7 @@
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
     <div id="shopPanel" class="hidden">
       <div id="shopTitle">Round shop</div>
+      <div id="shopPoints">0 points to spend</div>
       <div id="shopChoices"></div>
     </div>
   </div>
@@ -594,6 +621,7 @@ function setHelpModalVisible(visible){
 var shopPanel = document.getElementById("shopPanel");
 var shopChoicesEl = document.getElementById("shopChoices");
 var shopTitleEl = document.getElementById("shopTitle");
+var shopPointsEl = document.getElementById("shopPoints");
 var shopOptions = [];
 var hasPurchasedThisShop = false;
 var lastShopRenderKey = "";
@@ -652,6 +680,9 @@ function renderShopChoices(){
     (function(option){
       var button = document.createElement("button");
       button.className = "shopChoiceBtn";
+      if(option.tier){
+        button.classList.add("shopChoiceBtn--" + option.tier);
+      }
       var iconPlaceholder = document.createElement("span");
       iconPlaceholder.className = "shopChoiceIcon";
       var label = document.createElement("span");
@@ -675,9 +706,9 @@ function renderShopChoices(){
 
 function updateShopChoicesIfNeeded(){
   var optionsKey = (shopOptions || []).map(function(option){
-    return option.id;
+    return option.id + ":" + option.cost;
   }).join("|");
-  var nextRenderKey = optionsKey + "::" + (hasPurchasedThisShop ? "1" : "0");
+  var nextRenderKey = optionsKey + "::" + points + "::" + (hasPurchasedThisShop ? "1" : "0");
   if(nextRenderKey === lastShopRenderKey){
     return;
   }
@@ -1429,6 +1460,9 @@ function applyServerState(state){
     }
     if(shopTitleEl){
       shopTitleEl.textContent = "Round " + currentRound + " Shop";
+    }
+    if(shopPointsEl){
+      shopPointsEl.textContent = points + " point" + (points === 1 ? "" : "s") + " to spend";
     }
   } else if(gameMode === "gameOver") {
     setMatchStatus(winnerText || "Game over. Click Start to request a rematch.");
