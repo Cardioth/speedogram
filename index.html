@@ -612,6 +612,7 @@ var shopPoints = 0;
 var currentRound = 1;
 var totalRounds = 5;
 var winnerText = "";
+var lastPlaySecondsRemaining = null;
 
 function getOrCreateLocalPlayerId(){
   var storageKey = "speedogram.playerId";
@@ -1281,9 +1282,29 @@ function renderCountdownOverlay(){
 
 function renderGameOver(){
   var gameOverText = winnerText || ("Final Score: " + score);
-  ctx.font = "14px Arial";
-  ctx.fillStyle = CANVAS_ACCENT;
-  ctx.fillText(gameOverText, gridOffSetX-gridBoundaryMargin, 9);
+  var overlayCenterX = canvas.width / 2;
+  var overlayCenterY = canvas.height / 2;
+  var overlayWidth = Math.min(560, canvas.width - 110);
+  var overlayHeight = 150;
+  var overlayX = overlayCenterX - (overlayWidth / 2);
+  var overlayY = overlayCenterY - (overlayHeight / 2);
+
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = CANVAS_CELL_BG;
+  ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 12, true, false);
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = CANVAS_ACCENT;
+  ctx.roundRect(overlayX, overlayY, overlayWidth, overlayHeight, 12, false, true);
+
+  ctx.fillStyle = CANVAS_TEXT;
+  ctx.font = "bold 34px Arial";
+  ctx.fillText(gameOverText, overlayCenterX - (ctx.measureText(gameOverText).width / 2), overlayCenterY - 8);
+
+  var rematchHint = "Click Start to request a rematch";
+  ctx.fillStyle = "#9fcfff";
+  ctx.font = "16px Arial";
+  ctx.fillText(rematchHint, overlayCenterX - (ctx.measureText(rematchHint).width / 2), overlayCenterY + 30);
 }
 
 function hitTest(object){
@@ -1673,16 +1694,28 @@ function applyServerState(state){
       playSound("countdownBoop");
     }
     if(Number.isFinite(previousCountdownRemaining) && countdownRemaining < previousCountdownRemaining){
-      playSound("clockTick");
+      playSound("countdownBoop");
     }
     setMatchStatus("Match starts in " + Math.max(1, countdownRemaining) + "...");
     setShopVisible(false);
     lastShopRenderKey = "";
+    lastPlaySecondsRemaining = null;
   } else if(gameMode === "play") {
+    var remainingCentiseconds = getRemainingCentiseconds(timer, timeLimit);
+    var secondsRemaining = Number.isFinite(remainingCentiseconds) ? Math.ceil(remainingCentiseconds / 10) : null;
+    if(Number.isFinite(lastPlaySecondsRemaining) && Number.isFinite(secondsRemaining) && previousGameMode === "play" && secondsRemaining < lastPlaySecondsRemaining){
+      for(var tickSecond = lastPlaySecondsRemaining - 1; tickSecond >= secondsRemaining; tickSecond--){
+        if(tickSecond <= 5 && tickSecond >= 1){
+          playSound("clockTick");
+        }
+      }
+    }
+    lastPlaySecondsRemaining = Number.isFinite(secondsRemaining) ? secondsRemaining : null;
     setMatchStatus("Round " + currentRound + "/" + totalRounds + ": Playing against " + (opponentDisplayName || "opponent"));
     setShopVisible(false);
     lastShopRenderKey = "";
   } else if(gameMode === "roundOver") {
+    lastPlaySecondsRemaining = null;
     if(previousGameMode !== "roundOver"){
       playSound("roundOver");
     }
@@ -1690,6 +1723,7 @@ function applyServerState(state){
     setShopVisible(false);
     lastShopRenderKey = "";
   } else if(gameMode === "shop") {
+    lastPlaySecondsRemaining = null;
     if(hasPurchasedThisShop){
       setMatchStatus("Waiting for other player...");
       setShopVisible(false);
@@ -1713,6 +1747,7 @@ function applyServerState(state){
       shopPointsEl.textContent = shopPoints + " shop point" + (shopPoints === 1 ? "" : "s") + " to spend";
     }
   } else if(gameMode === "gameOver") {
+    lastPlaySecondsRemaining = null;
     if(previousGameMode !== "gameOver"){
       playSound("roundOver");
     }
