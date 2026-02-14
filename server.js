@@ -17,13 +17,18 @@ const TIME_LIMIT_INIT = 12000;
 const TIME_INCREMENT = 0;
 const MATCH_COUNTDOWN_MS = 3000;
 const TOTAL_ROUNDS = 5;
+const SHOP_TIER_CONFIG = {
+  common: { multiplier: 1, label: "Common" },
+  rare: { multiplier: 1.5, label: "Rare" },
+  epic: { multiplier: 2, label: "Epic" }
+};
 const UPGRADE_DEFS = [
-  { id: "extra-second-per-solve", label: "+1 second more time per puzzle solved" },
-  { id: "start-revealed-cell", label: "+one cell starts already revealed" },
-  { id: "plus-5-start-time", label: "+5 seconds starting time" },
-  { id: "plus-2-next-round-points", label: "+2 points for next round" },
-  { id: "opp-minus-2-start-time", label: "+opponent gets 2 seconds less starting time" },
-  { id: "opp-bomb-cell", label: "+Bomb cell for opponent" }
+  { id: "extra-second-per-solve", description: "+{value}s more time per puzzle solved", tier: "common", cost: 3, baseValue: 1, effect: "perSolveTimeBonusMs", effectScale: 1000 },
+  { id: "start-revealed-cell", description: "+{value} revealed starting cell(s)", tier: "common", cost: 4, baseValue: 1, effect: "startRevealedCells", effectScale: 1 },
+  { id: "plus-5-start-time", description: "+{value}s starting time", tier: "rare", cost: 6, baseValue: 5, effect: "startingTimeBonusMs", effectScale: 1000 },
+  { id: "plus-2-next-round-points", description: "+{value} bonus point(s) next round", tier: "rare", cost: 7, baseValue: 2, effect: "nextRoundPointBonus", effectScale: 1 },
+  { id: "opp-minus-2-start-time", description: "Opponent -{value}s starting time", tier: "epic", cost: 9, baseValue: 2, effect: "incomingStartPenaltyMs", effectScale: 1000, target: "opponent" },
+  { id: "opp-bomb-cell", description: "Plant bomb trap for opponent", tier: "epic", cost: 8, baseValue: 1, effect: "incomingBombNextRound", target: "opponent", booleanEffect: true }
 ];
 
 const players = new Map();
@@ -312,12 +317,32 @@ function getRoundPuzzle(match, round, level, gridSize) {
   return clonePuzzle(match.roundPuzzleCache.get(key));
 }
 
+function formatUpgradeLabel(upgradeDef, appliedValue, tierConfig) {
+  const multiplierText = `${tierConfig.multiplier}x`;
+  const effectText = upgradeDef.description.replace("{value}", String(appliedValue));
+  return `[${tierConfig.label} ${multiplierText}] ${effectText} (${upgradeDef.cost} pts)`;
+}
+
+function toUpgradeOffer(upgradeDef) {
+  const tierConfig = SHOP_TIER_CONFIG[upgradeDef.tier] || SHOP_TIER_CONFIG.common;
+  const rawValue = upgradeDef.booleanEffect ? 1 : (upgradeDef.baseValue || 0) * tierConfig.multiplier;
+  const appliedValue = upgradeDef.booleanEffect ? 1 : Math.max(1, Math.round(rawValue));
+  return {
+    id: upgradeDef.id,
+    tier: upgradeDef.tier,
+    multiplier: tierConfig.multiplier,
+    cost: upgradeDef.cost,
+    appliedValue,
+    label: formatUpgradeLabel(upgradeDef, appliedValue, tierConfig)
+  };
+}
+
 function chooseRandomUpgrades(count = 3) {
   const pool = [...UPGRADE_DEFS];
   const selected = [];
   while (selected.length < count && pool.length) {
     const idx = Math.floor(Math.random() * pool.length);
-    selected.push(pool.splice(idx, 1)[0]);
+    selected.push(toUpgradeOffer(pool.splice(idx, 1)[0]));
   }
   return selected;
 }
@@ -562,7 +587,8 @@ function checkVictory(match, state) {
     }
   }
   if (totalGuesses === totalGridSize) {
-    state.points += 1 + (state.roundPointsBonus || 0);
+    const puzzlePoints = Math.max(1, state.gridSize - 2);
+    state.points += puzzlePoints + (state.roundPointsBonus || 0);
     state.score = state.points;
     state.roundPointsBonus = 0;
     state.level += 1;
@@ -622,13 +648,17 @@ function applyAction(match, state, x, y, button) {
   checkVictory(match, state);
 }
 
+function hasAffordableUpgrade(state) {
+  return (state.shopOptions || []).some((option) => state.points >= (option.cost || 0));
+}
+
 function enterShop(match) {
   match.status = "shop";
   match.players.forEach((playerId) => {
     const state = match.states[playerId];
     state.gameMode = "shop";
     state.shopOptions = chooseRandomUpgrades(3);
-    state.hasPurchasedThisShop = false;
+    state.hasPurchasedThisShop = !hasAffordableUpgrade(state);
   });
 }
 
@@ -666,35 +696,28 @@ function applyUpgrade(match, buyerId, upgradeId) {
   if (!state || state.hasPurchasedThisShop || state.gameMode !== "shop") return;
   const option = (state.shopOptions || []).find((entry) => entry.id === upgradeId);
   if (!option) return;
+  if (state.points < option.cost) return;
+
+  const definition = UPGRADE_DEFS.find((entry) => entry.id === upgradeId);
+  if (!definition) return;
 
   const opponentId = match.players.find((id) => id !== buyerId);
   const opponentState = match.states[opponentId];
+  const targetState = definition.target === "opponent" ? opponentState : state;
+  if (!targetState) return;
 
-  switch (upgradeId) {
-    case "extra-second-per-solve":
-      state.perSolveTimeBonusMs += 1000;
-      break;
-    case "start-revealed-cell":
-      state.startRevealedCells += 1;
-      break;
-    case "plus-5-start-time":
-      state.startingTimeBonusMs += 5000;
-      break;
-    case "plus-2-next-round-points":
-      state.nextRoundPointBonus += 2;
-      break;
-    case "opp-minus-2-start-time":
-      if (opponentState) opponentState.incomingStartPenaltyMs += 2000;
-      break;
-    case "opp-bomb-cell":
-      if (opponentState) opponentState.incomingBombNextRound = true;
-      break;
-    default:
-      return;
+  if (definition.booleanEffect) {
+    targetState[definition.effect] = true;
+  } else {
+    const scaledAmount = option.appliedValue * (definition.effectScale || 1);
+    targetState[definition.effect] += scaledAmount;
   }
 
+  state.points -= option.cost;
+  state.score = state.points;
   state.hasPurchasedThisShop = true;
 }
+
 
 function maybeStartMatchmaking() {
   while (waitingQueue.length >= 2) {

@@ -659,9 +659,11 @@ function renderShopChoices(){
       label.textContent = option.label;
       button.appendChild(iconPlaceholder);
       button.appendChild(label);
-      button.disabled = !!hasPurchasedThisShop;
+      var optionCost = Number.isFinite(option.cost) ? option.cost : 0;
+      var canAfford = points >= optionCost;
+      button.disabled = !!hasPurchasedThisShop || !canAfford;
       button.addEventListener("click", function(){
-        if(!socket || hasPurchasedThisShop){
+        if(!socket || hasPurchasedThisShop || !canAfford){
           return;
         }
         socket.emit("shop:buy", { upgradeId: option.id });
@@ -1414,7 +1416,15 @@ function applyServerState(state){
       setShopVisible(false);
       lastShopRenderKey = "";
     } else {
-      setMatchStatus("Shop: choose 1 upgrade for next round.");
+      var affordableCount = shopOptions.filter(function(option){
+        var optionCost = Number.isFinite(option.cost) ? option.cost : 0;
+        return points >= optionCost;
+      }).length;
+      if(affordableCount === 0){
+        setMatchStatus("Shop: not enough points, waiting for next round...");
+      } else {
+        setMatchStatus("Shop: choose 1 upgrade for next round.");
+      }
       setShopVisible(true);
     }
     if(shopTitleEl){
