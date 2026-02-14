@@ -176,19 +176,20 @@
   #soundToggleButton {
     border: 1px solid rgba(130, 183, 255, 0.55);
     border-radius: 12px;
-    padding: 10px 12px;
-    min-width: 122px;
+    padding: 8px 10px;
     background: rgba(10, 20, 50, 0.75);
     color: var(--text);
     cursor: pointer;
     font-weight: 600;
     letter-spacing: 0.3px;
+    font-size: 18px;
+    line-height: 1;
   }
   #soundControls {
-    width: min(960px, calc(100vw - 32px));
-    margin: 0 auto;
-    display: flex;
-    justify-content: center;
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 30;
   }
   #nameStatus,
   #matchStatus,
@@ -497,7 +498,7 @@
     <button id="startButton">Start</button>
   </div>
   <div id="soundControls">
-    <button id="soundToggleButton" type="button" aria-pressed="false">🔊 Sound On</button>
+    <button id="soundToggleButton" type="button" aria-pressed="false" aria-label="Mute sound">🔊</button>
   </div>
   <div id="matchStatus" class="matchmakingUI" style="text-align:center;color:#0088FF;font-size:13px;">Enter your name and click Start.</div>
     <div id="arena">
@@ -772,7 +773,8 @@ function syncSoundButton(){
   if(!soundToggleButton){
     return;
   }
-  soundToggleButton.textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
+  soundToggleButton.textContent = soundEnabled ? "🔊" : "🔇";
+  soundToggleButton.setAttribute("aria-label", soundEnabled ? "Mute sound" : "Unmute sound");
   soundToggleButton.setAttribute("aria-pressed", soundEnabled ? "false" : "true");
 }
 
