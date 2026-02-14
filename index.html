@@ -422,7 +422,7 @@
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
     <div id="shopPanel" class="hidden">
       <div id="shopTitle">Round shop</div>
-      <div id="shopPoints">0 points to spend</div>
+      <div id="shopPoints">0 shop points to spend</div>
       <div id="shopChoices"></div>
     </div>
   </div>
@@ -432,8 +432,8 @@
       <div id="multiplayerPlayers">Waiting for players…</div>
     </div>
     <div class="infoCard">
-      <h3>Leaderboard</h3>
-      <div id="leaderboardPlayers">No scores yet.</div>
+      <h3>Daily Leaderboard</h3>
+      <div id="leaderboardPlayers">No daily scores yet.</div>
     </div>
   </div>
   <div id="helpLinkWrap">
@@ -525,7 +525,7 @@ var timeLimitInit = 12000;
 var timeLimit = timeLimitInit;
 var timeIncrement = 700;
 var score = 0;
-var points = 0;
+var shopPoints = 0;
 var currentRound = 1;
 var totalRounds = 5;
 var winnerText = "";
@@ -663,7 +663,7 @@ function updateMultiplayerPanel(players){
   }
   panel.innerHTML = latestRoster
     .map(function(player){
-      return player.name + " — points " + (player.points || player.score || 0) + ", lvl " + player.level + ", lives " + player.lives + " (" + player.gameMode + ")";
+      return player.name + " — score " + (player.score || 0) + ", shop " + (player.shopPoints || 0) + ", lvl " + player.level + ", lives " + player.lives + " (" + player.gameMode + ")";
     })
     .join("<br>");
 }
@@ -676,12 +676,12 @@ function updateLeaderboardPanel(entries){
   }
   latestLeaderboard = entries || [];
   if(!latestLeaderboard.length){
-    panel.textContent = "No scores yet.";
+    panel.textContent = "No daily scores yet.";
     return;
   }
   panel.innerHTML = latestLeaderboard
     .map(function(entry){
-      return "#" + entry.rank + " " + entry.name + " — best " + (entry.bestPoints || 0);
+      return "#" + entry.rank + " " + entry.name + " — score " + (entry.bestPoints || 0);
     })
     .join("<br>");
 }
@@ -716,7 +716,7 @@ function renderShopChoices(){
       button.appendChild(iconPlaceholder);
       button.appendChild(label);
       var optionCost = Number.isFinite(option.cost) ? option.cost : 0;
-      var canAfford = points >= optionCost;
+      var canAfford = shopPoints >= optionCost;
       button.disabled = !!hasPurchasedThisShop || !canAfford;
       button.addEventListener("click", function(){
         if(!socket || hasPurchasedThisShop || !canAfford){
@@ -733,7 +733,7 @@ function updateShopChoicesIfNeeded(){
   var optionsKey = (shopOptions || []).map(function(option){
     return option.id + ":" + option.cost;
   }).join("|");
-  var nextRenderKey = optionsKey + "::" + points + "::" + (hasPurchasedThisShop ? "1" : "0");
+  var nextRenderKey = optionsKey + "::" + shopPoints + "::" + (hasPurchasedThisShop ? "1" : "0");
   if(nextRenderKey === lastShopRenderKey){
     return;
   }
@@ -863,7 +863,7 @@ function drawOpponentBoard(){
   var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, opOverallGridSize);
   renderHeartsRow(opponentBoardCenterX, opGridOffSetY + opOverallGridSize + 25, opLives, renderOpponentHeart);
 
-  var opScore = opponentState.points || opponentState.score || 0;
+  var opScore = opponentState.score || 0;
   var opponentScoreX = opponentGridOffSetX - gridBoundaryMargin - 22;
   for(var star = 0; star < opScore; star++){
     renderStar(opponentScoreX,60+(star%5*20));
@@ -1071,7 +1071,7 @@ function renderCountdownOverlay(){
 }
 
 function renderGameOver(){
-  var gameOverText = winnerText || ("Final Points: " + points);
+  var gameOverText = winnerText || ("Final Score: " + score);
   ctx.font = "14px Arial";
   ctx.fillStyle = CANVAS_ACCENT;
   ctx.fillText(gameOverText, gridOffSetX-gridBoundaryMargin, 9);
@@ -1141,7 +1141,7 @@ function renderStopwatchHand(x,y,time){
 }
 function renderScore(){
   var myScoreX = gridOffSetX-gridBoundaryMargin-22;
-  for(var i=0;i<points;i++){
+  for(var i=0;i<score;i++){
     renderStar(myScoreX,60+(i%5*20));
   }
 }
@@ -1434,7 +1434,7 @@ function applyServerState(state){
   timer = state.timer;
   level = state.level;
   score = state.score;
-  points = Number.isFinite(state.points) ? state.points : state.score;
+  shopPoints = Number.isFinite(state.shopPoints) ? state.shopPoints : 0;
   lives = state.lives;
   currentRound = state.round || currentRound;
   winnerText = state.winnerText || "";
@@ -1474,10 +1474,10 @@ function applyServerState(state){
     } else {
       var affordableCount = shopOptions.filter(function(option){
         var optionCost = Number.isFinite(option.cost) ? option.cost : 0;
-        return points >= optionCost;
+        return shopPoints >= optionCost;
       }).length;
       if(affordableCount === 0){
-        setMatchStatus("Shop: not enough points, waiting for next round...");
+        setMatchStatus("Shop: not enough shop points, waiting for next round...");
       } else {
         setMatchStatus("Shop: choose 1 upgrade for next round.");
       }
@@ -1487,7 +1487,7 @@ function applyServerState(state){
       shopTitleEl.textContent = "Round " + currentRound + " Shop";
     }
     if(shopPointsEl){
-      shopPointsEl.textContent = points + " point" + (points === 1 ? "" : "s") + " to spend";
+      shopPointsEl.textContent = shopPoints + " shop point" + (shopPoints === 1 ? "" : "s") + " to spend";
     }
   } else if(gameMode === "gameOver") {
     setMatchStatus(winnerText || "Game over. Click Start to request a rematch.");

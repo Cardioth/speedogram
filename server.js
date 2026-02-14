@@ -36,6 +36,8 @@ const waitingQueue = [];
 const matches = new Map();
 const leaderboard = new Map();
 const LEADERBOARD_LIMIT = 10;
+const DAILY_LEADERBOARD_TTL_MS = 24 * 60 * 60 * 1000;
+const LEADERBOARD_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 function readEnv(...keys) {
   for (const key of keys) {
     const value = process.env[key];
@@ -48,6 +50,7 @@ const REDIS_URL = readEnv("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_UR
 const REDIS_TOKEN = readEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_TOKEN", "UPSTASH_REDIS_PASSWORD");
 const LEADERBOARD_REDIS_KEY = "speedogram:leaderboard";
 const LEADERBOARD_META_REDIS_KEY = "speedogram:leaderboard:meta";
+const LEADERBOARD_TIME_REDIS_KEY = "speedogram:leaderboard:updated";
 let redisClient = null;
 
 async function runRedisCommand(command, args = []) {
@@ -73,6 +76,7 @@ async function connectRedis() {
 }
 
 async function loadLeaderboardFromRedis() {
+  await pruneLeaderboardStorage();
   const entries = await runRedisCommand("ZREVRANGE", [LEADERBOARD_REDIS_KEY, 0, LEADERBOARD_LIMIT - 1, "WITHSCORES"]);
   leaderboard.clear();
   const ids = [];
@@ -107,6 +111,7 @@ async function loadLeaderboardFromRedis() {
 
 async function persistLeaderboardEntry(entry) {
   await runRedisCommand("ZADD", [LEADERBOARD_REDIS_KEY, entry.bestPoints, entry.id]);
+  await runRedisCommand("ZADD", [LEADERBOARD_TIME_REDIS_KEY, entry.updatedAt, entry.id]);
   await runRedisCommand("HSET", [LEADERBOARD_META_REDIS_KEY, entry.id, JSON.stringify({ name: entry.name, updatedAt: entry.updatedAt })]);
   const total = Number(await runRedisCommand("ZCARD", [LEADERBOARD_REDIS_KEY])) || 0;
   const entriesOverLimit = total - LEADERBOARD_LIMIT;
@@ -117,6 +122,31 @@ async function persistLeaderboardEntry(entry) {
     }
     await runRedisCommand("ZREMRANGEBYRANK", [LEADERBOARD_REDIS_KEY, 0, entriesOverLimit - 1]);
   }
+}
+
+async function removeLeaderboardEntries(ids) {
+  if (!ids.length) return;
+  await runRedisCommand("ZREM", [LEADERBOARD_REDIS_KEY, ...ids]);
+  await runRedisCommand("ZREM", [LEADERBOARD_TIME_REDIS_KEY, ...ids]);
+  await runRedisCommand("HDEL", [LEADERBOARD_META_REDIS_KEY, ...ids]);
+}
+
+function pruneLocalLeaderboard(now = Date.now()) {
+  const cutoff = now - DAILY_LEADERBOARD_TTL_MS;
+  const staleIds = [];
+  leaderboard.forEach((entry, id) => {
+    if ((Number(entry.updatedAt) || 0) < cutoff) {
+      staleIds.push(id);
+    }
+  });
+  staleIds.forEach((id) => leaderboard.delete(id));
+}
+
+async function pruneLeaderboardStorage(now = Date.now()) {
+  const cutoff = now - DAILY_LEADERBOARD_TTL_MS;
+  const staleIds = await runRedisCommand("ZRANGEBYSCORE", [LEADERBOARD_TIME_REDIS_KEY, 0, cutoff]);
+  if (!staleIds.length) return;
+  await removeLeaderboardEntries(staleIds);
 }
 
 function makePlayerTag(playerId) {
@@ -417,7 +447,7 @@ function makePlayerState(initialMode = "play") {
   const puzzle = makePuzzle(gridSize);
   return {
     score: 0,
-    points: 0,
+    shopPoints: 0,
     level,
     lives: TOTAL_LIVES,
     gameMode: initialMode,
@@ -444,8 +474,8 @@ function makePlayerState(initialMode = "play") {
 
 function toPublicState(state) {
   return {
-    score: state.points,
-    points: state.points,
+    score: state.score,
+    shopPoints: state.shopPoints,
     level: state.level,
     lives: state.lives,
     gameMode: state.gameMode,
@@ -469,7 +499,7 @@ function buildPlayerList() {
     id: player.id,
     name: player.displayName,
     score: player.lastScore || 0,
-    points: player.lastScore || 0,
+    shopPoints: player.lastShopPoints || 0,
     level: player.lastLevel || 0,
     lives: player.lastLives ?? TOTAL_LIVES,
     gameMode: player.status
@@ -480,10 +510,10 @@ function emitPlayers() {
   io.emit("players:update", buildPlayerList());
 }
 
-function updateLeaderboardEntry(playerId, displayName, points) {
+function updateLeaderboardEntry(playerId, displayName, score) {
   if (typeof playerId !== "string" || !playerId.trim()) return;
   if (typeof displayName !== "string" || !displayName.trim()) return;
-  const safePoints = Number.isFinite(points) ? Math.max(0, Math.floor(points)) : 0;
+  const safePoints = Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
   if (safePoints <= 0) return;
   const existing = leaderboard.get(playerId);
   if (!existing || safePoints > existing.bestPoints) {
@@ -501,6 +531,7 @@ function updateLeaderboardEntry(playerId, displayName, points) {
 }
 
 function buildLeaderboard() {
+  pruneLocalLeaderboard();
   return Array.from(leaderboard.values())
     .sort((a, b) => {
       if (b.bestPoints !== a.bestPoints) return b.bestPoints - a.bestPoints;
@@ -551,14 +582,16 @@ function emitMatchState(match) {
   const countdownRemaining = match.roundStartsAt ? Math.max(0, Math.ceil((match.roundStartsAt - Date.now()) / 1000)) : 0;
 
   p1.lastScore = match.states[p1Id].score;
+  p1.lastShopPoints = match.states[p1Id].shopPoints;
   p1.lastLevel = match.states[p1Id].level;
   p1.lastLives = match.states[p1Id].lives;
   p2.lastScore = match.states[p2Id].score;
+  p2.lastShopPoints = match.states[p2Id].shopPoints;
   p2.lastLevel = match.states[p2Id].level;
   p2.lastLives = match.states[p2Id].lives;
 
-  updateLeaderboardEntry(p1.leaderboardId, p1.displayName, match.states[p1Id].points);
-  updateLeaderboardEntry(p2.leaderboardId, p2.displayName, match.states[p2Id].points);
+  updateLeaderboardEntry(p1.leaderboardId, p1.displayName, match.states[p1Id].score);
+  updateLeaderboardEntry(p2.leaderboardId, p2.displayName, match.states[p2Id].score);
 
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
@@ -594,8 +627,9 @@ function checkVictory(match, state) {
   }
   if (totalGuesses === totalGridSize) {
     const puzzlePoints = Math.max(1, state.gridSize - 2);
-    state.points += puzzlePoints + (state.roundPointsBonus || 0);
-    state.score = state.points;
+    const earnedPoints = puzzlePoints + (state.roundPointsBonus || 0);
+    state.score += earnedPoints;
+    state.shopPoints += earnedPoints;
     state.roundPointsBonus = 0;
     state.level += 1;
     state.timeLimit += TIME_INCREMENT + (state.perSolveTimeBonusMs || 0);
@@ -644,8 +678,7 @@ function applyAction(match, state, x, y, button) {
 
   if (state.lives <= 0) {
     state.lives = 0;
-    state.points = 0;
-    state.score = 0;
+    state.shopPoints = 0;
     state.roundPointsBonus = 0;
     state.gameMode = "roundOver";
     return;
@@ -655,7 +688,7 @@ function applyAction(match, state, x, y, button) {
 }
 
 function hasAffordableUpgrade(state) {
-  return (state.shopOptions || []).some((option) => state.points >= (option.cost || 0));
+  return (state.shopOptions || []).some((option) => state.shopPoints >= (option.cost || 0));
 }
 
 function enterShop(match) {
@@ -672,12 +705,12 @@ function startNextRound(match) {
   match.round += 1;
   if (match.round > TOTAL_ROUNDS) {
     const [p1Id, p2Id] = match.players;
-    const p1Points = match.states[p1Id].points;
-    const p2Points = match.states[p2Id].points;
-    const resultText = p1Points === p2Points ? "It's a draw!" : (p1Points > p2Points ? "You win!" : "You lose.");
-    const resultTextOpponent = p1Points === p2Points ? "It's a draw!" : (p2Points > p1Points ? "You win!" : "You lose.");
-    match.states[p1Id].winnerText = `${resultText} Final points ${p1Points}-${p2Points}`;
-    match.states[p2Id].winnerText = `${resultTextOpponent} Final points ${p2Points}-${p1Points}`;
+    const p1Score = match.states[p1Id].score;
+    const p2Score = match.states[p2Id].score;
+    const resultText = p1Score === p2Score ? "It's a draw!" : (p1Score > p2Score ? "You win!" : "You lose.");
+    const resultTextOpponent = p1Score === p2Score ? "It's a draw!" : (p2Score > p1Score ? "You win!" : "You lose.");
+    match.states[p1Id].winnerText = `${resultText} Final score ${p1Score}-${p2Score}`;
+    match.states[p2Id].winnerText = `${resultTextOpponent} Final score ${p2Score}-${p1Score}`;
     match.players.forEach((playerId) => {
       match.states[playerId].gameMode = "gameOver";
     });
@@ -702,7 +735,7 @@ function applyUpgrade(match, buyerId, upgradeId) {
   if (!state || state.hasPurchasedThisShop || state.gameMode !== "shop") return;
   const option = (state.shopOptions || []).find((entry) => entry.id === upgradeId);
   if (!option) return;
-  if (state.points < option.cost) return;
+  if (state.shopPoints < option.cost) return;
 
   const definition = UPGRADE_DEFS.find((entry) => entry.id === upgradeId);
   if (!definition) return;
@@ -719,8 +752,7 @@ function applyUpgrade(match, buyerId, upgradeId) {
     targetState[definition.effect] += scaledAmount;
   }
 
-  state.points -= option.cost;
-  state.score = state.points;
+  state.shopPoints -= option.cost;
   state.hasPurchasedThisShop = true;
 }
 
@@ -809,6 +841,13 @@ setInterval(() => {
   });
 }, 100);
 
+setInterval(() => {
+  pruneLocalLeaderboard();
+  pruneLeaderboardStorage().catch((error) => {
+    console.error("[leaderboard] Failed to prune stale entries:", error.message);
+  });
+}, LEADERBOARD_CLEANUP_INTERVAL_MS);
+
 io.on("connection", (socket) => {
   const claimedId = socket.handshake?.auth?.playerId || socket.handshake?.query?.playerId;
   const leaderboardPlayerId = normalizeLeaderboardPlayerId(claimedId, socket.id);
@@ -823,6 +862,7 @@ io.on("connection", (socket) => {
     status: "menu",
     matchId: null,
     lastScore: 0,
+    lastShopPoints: 0,
     lastLevel: 0,
     lastLives: TOTAL_LIVES
   });
@@ -938,6 +978,7 @@ io.on("connection", (socket) => {
 async function startServer() {
   await connectRedis();
   await loadLeaderboardFromRedis();
+  pruneLocalLeaderboard();
 
   server.listen(PORT, HOST, () => {
     console.log(`Speed-o-Gram server listening on http://${HOST}:${PORT}`);
