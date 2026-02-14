@@ -780,6 +780,9 @@ var shopPointsEl = document.getElementById("shopPoints");
 var shopOptions = [];
 var hasPurchasedThisShop = false;
 var lastShopRenderKey = "";
+var shopOpenGraceMs = 700;
+var shopGraceUntil = 0;
+var shopGraceTimeoutId = null;
 var soundStorageKey = "speedogram.soundEnabled";
 var soundEnabled = true;
 var sounds = {
@@ -886,10 +889,34 @@ function setShopVisible(visible){
   shopPanel.classList.toggle("hidden", !visible);
 }
 
+function isShopGraceActive(){
+  return Date.now() < shopGraceUntil;
+}
+
+function startShopGracePeriod(){
+  shopGraceUntil = Date.now() + shopOpenGraceMs;
+  if(shopGraceTimeoutId){
+    clearTimeout(shopGraceTimeoutId);
+  }
+  shopGraceTimeoutId = setTimeout(function(){
+    shopGraceTimeoutId = null;
+    updateShopChoicesIfNeeded();
+  }, shopOpenGraceMs + 10);
+}
+
+function clearShopGracePeriod(){
+  shopGraceUntil = 0;
+  if(shopGraceTimeoutId){
+    clearTimeout(shopGraceTimeoutId);
+    shopGraceTimeoutId = null;
+  }
+}
+
 function renderShopChoices(){
   if(!shopChoicesEl){
     return;
   }
+  var graceActive = isShopGraceActive();
   shopChoicesEl.innerHTML = "";
   if(!shopOptions || !shopOptions.length || hasPurchasedThisShop){
     return;
@@ -919,9 +946,9 @@ function renderShopChoices(){
       button.appendChild(label);
       button.appendChild(costLabel);
       var canAfford = shopPoints >= optionCost;
-      button.disabled = !!hasPurchasedThisShop || !canAfford;
+      button.disabled = !!hasPurchasedThisShop || !canAfford || graceActive;
       button.addEventListener("click", function(){
-        if(!socket || hasPurchasedThisShop || !canAfford){
+        if(!socket || hasPurchasedThisShop || !canAfford || isShopGraceActive()){
           return;
         }
         socket.emit("shop:buy", { upgradeId: option.id });
@@ -935,7 +962,7 @@ function updateShopChoicesIfNeeded(){
   var optionsKey = (shopOptions || []).map(function(option){
     return option.id + ":" + option.cost;
   }).join("|");
-  var nextRenderKey = optionsKey + "::" + shopPoints + "::" + (hasPurchasedThisShop ? "1" : "0");
+  var nextRenderKey = optionsKey + "::" + shopPoints + "::" + (hasPurchasedThisShop ? "1" : "0") + "::" + (isShopGraceActive() ? "1" : "0");
   if(nextRenderKey === lastShopRenderKey){
     return;
   }
@@ -1744,6 +1771,10 @@ function applyServerState(state){
 
   reconcilePendingPredictions();
 
+  if(gameMode !== "shop"){
+    clearShopGracePeriod();
+  }
+
   if(gameMode === "countdown") {
     if(previousGameMode !== "countdown"){
       playSound("countdownBoop");
@@ -1780,10 +1811,14 @@ function applyServerState(state){
   } else if(gameMode === "shop") {
     lastPlaySecondsRemaining = null;
     if(hasPurchasedThisShop){
+      clearShopGracePeriod();
       setMatchStatus("Waiting for other player...");
       setShopVisible(false);
       lastShopRenderKey = "";
     } else {
+      if(previousGameMode !== "shop"){
+        startShopGracePeriod();
+      }
       var affordableCount = shopOptions.filter(function(option){
         var optionCost = Number.isFinite(option.cost) ? option.cost : 0;
         return shopPoints >= optionCost;
@@ -1802,6 +1837,7 @@ function applyServerState(state){
       shopPointsEl.textContent = shopPoints + " shop point" + (shopPoints === 1 ? "" : "s") + " to spend";
     }
   } else if(gameMode === "gameOver") {
+    clearShopGracePeriod();
     lastPlaySecondsRemaining = null;
     if(previousGameMode !== "gameOver"){
       playSound("roundOver");
