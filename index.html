@@ -173,6 +173,23 @@
     cursor: not-allowed;
     opacity: 0.65;
   }
+  #soundToggleButton {
+    border: 1px solid rgba(130, 183, 255, 0.55);
+    border-radius: 12px;
+    padding: 10px 12px;
+    min-width: 122px;
+    background: rgba(10, 20, 50, 0.75);
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  #soundControls {
+    width: min(960px, calc(100vw - 32px));
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+  }
   #nameStatus,
   #matchStatus,
   #multiplayerPlayers {
@@ -479,6 +496,9 @@
     <input id="playerName" maxlength="24" placeholder="Player name" />
     <button id="startButton">Start</button>
   </div>
+  <div id="soundControls">
+    <button id="soundToggleButton" type="button" aria-pressed="false">🔊 Sound On</button>
+  </div>
   <div id="matchStatus" class="matchmakingUI" style="text-align:center;color:#0088FF;font-size:13px;">Enter your name and click Start.</div>
     <div id="arena">
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
@@ -622,6 +642,7 @@ var myPlayerName = "";
 var latestRoster = [];
 var latestLeaderboard = [];
 var startButton = document.getElementById("startButton");
+var soundToggleButton = document.getElementById("soundToggleButton");
 var playerNameInput = document.getElementById("playerName");
 var matchStatusEl = document.getElementById("matchStatus");
 var opponentState = null;
@@ -711,6 +732,68 @@ var shopPointsEl = document.getElementById("shopPoints");
 var shopOptions = [];
 var hasPurchasedThisShop = false;
 var lastShopRenderKey = "";
+var soundStorageKey = "speedogram.soundEnabled";
+var soundEnabled = true;
+var sounds = {
+  cellFilled: makeSound("/assets/sfx/cell-filled.ogg", 0.35),
+  countdownBoop: makeSound("/assets/sfx/countdown-boop.ogg", 0.45),
+  puzzleCompleted: makeSound("/assets/sfx/puzzle-completed.ogg", 0.45),
+  clockTick: makeSound("/assets/sfx/clock-tick.ogg", 0.25),
+  roundOver: makeSound("/assets/sfx/round-over.ogg", 0.45)
+};
+
+function makeSound(src, volume){
+  var audio = new Audio(src);
+  audio.preload = "auto";
+  audio.volume = volume;
+  return audio;
+}
+
+function loadSoundPreference(){
+  try {
+    var stored = localStorage.getItem(soundStorageKey);
+    if(stored === "0"){
+      soundEnabled = false;
+    }
+  } catch (_error) {
+    soundEnabled = true;
+  }
+}
+
+function persistSoundPreference(){
+  try {
+    localStorage.setItem(soundStorageKey, soundEnabled ? "1" : "0");
+  } catch (_error) {
+    // Ignore storage failures.
+  }
+}
+
+function syncSoundButton(){
+  if(!soundToggleButton){
+    return;
+  }
+  soundToggleButton.textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
+  soundToggleButton.setAttribute("aria-pressed", soundEnabled ? "false" : "true");
+}
+
+function playSound(soundKey){
+  if(!soundEnabled){
+    return;
+  }
+  var sound = sounds[soundKey];
+  if(!sound){
+    return;
+  }
+  try {
+    var shot = sound.cloneNode(true);
+    shot.volume = sound.volume;
+    shot.play().catch(function(){
+      // Ignore autoplay/user gesture errors.
+    });
+  } catch (_error) {
+    // Ignore audio playback failures.
+  }
+}
 
 function updateMultiplayerPanel(players){
   var panel = document.getElementById("multiplayerPlayers");
@@ -1498,6 +1581,9 @@ function sendActionFromPointerDrag(button){
         pendingPredictions.push({ x: i, y: j, button: button, puzzleId: currentPuzzleId, createdAt: Date.now() });
         prunePendingPredictions();
         applyLocalPrediction(i, j, button);
+        if(button === 0){
+          playSound("cellFilled");
+        }
         if(socket){
           socket.emit("game:action", { x: i, y: j, button: button });
         }
@@ -1546,6 +1632,9 @@ function applyServerState(state){
   if(!state){
     return;
   }
+  var previousGameMode = gameMode;
+  var previousCountdownRemaining = countdownRemaining;
+  var previousPuzzleId = currentPuzzleId;
   var nextPuzzleId = Number.isFinite(state.puzzleId) ? state.puzzleId : 0;
   if(nextPuzzleId !== currentPuzzleId){
     pendingPredictions = [];
@@ -1578,6 +1667,12 @@ function applyServerState(state){
   reconcilePendingPredictions();
 
   if(gameMode === "countdown") {
+    if(previousGameMode !== "countdown"){
+      playSound("countdownBoop");
+    }
+    if(Number.isFinite(previousCountdownRemaining) && countdownRemaining < previousCountdownRemaining){
+      playSound("clockTick");
+    }
     setMatchStatus("Match starts in " + Math.max(1, countdownRemaining) + "...");
     setShopVisible(false);
     lastShopRenderKey = "";
@@ -1586,6 +1681,9 @@ function applyServerState(state){
     setShopVisible(false);
     lastShopRenderKey = "";
   } else if(gameMode === "roundOver") {
+    if(previousGameMode !== "roundOver"){
+      playSound("roundOver");
+    }
     setMatchStatus("Round " + currentRound + " complete. Waiting for opponent...");
     setShopVisible(false);
     lastShopRenderKey = "";
@@ -1613,6 +1711,9 @@ function applyServerState(state){
       shopPointsEl.textContent = shopPoints + " shop point" + (shopPoints === 1 ? "" : "s") + " to spend";
     }
   } else if(gameMode === "gameOver") {
+    if(previousGameMode !== "gameOver"){
+      playSound("roundOver");
+    }
     setMatchStatus(winnerText || "Game over. Click Start to request a rematch.");
     setShopVisible(false);
     lastShopRenderKey = "";
@@ -1620,6 +1721,10 @@ function applyServerState(state){
 
   if(gameMode !== "play") {
     pendingPredictions = [];
+  }
+
+  if(previousPuzzleId && nextPuzzleId !== previousPuzzleId && previousGameMode === "play"){
+    playSound("puzzleCompleted");
   }
 
   overallGridSize = gridSize*cellSize;
@@ -1769,6 +1874,14 @@ startButton.addEventListener("click", function(){
   requestMatch();
 });
 
+if(soundToggleButton){
+  soundToggleButton.addEventListener("click", function(){
+    soundEnabled = !soundEnabled;
+    persistSoundPreference();
+    syncSoundButton();
+  });
+}
+
 playerNameInput.addEventListener("change", function(){
   var requestedName = playerNameInput.value && playerNameInput.value.trim();
   if(requestedName){
@@ -1807,6 +1920,8 @@ document.addEventListener("keydown", function(evt){
 
 init();
 initMultiplayer();
+loadSoundPreference();
+syncSoundButton();
 
 </script>
 
