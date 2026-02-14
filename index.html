@@ -626,7 +626,6 @@ var playerNameInput = document.getElementById("playerName");
 var matchStatusEl = document.getElementById("matchStatus");
 var opponentState = null;
 var appVersionEl = document.getElementById("appVersion");
-var sharedTimeRemaining = "--";
 var opponentGridOffSetX = 560;
 var boardTopY = 120;
 var myDisplayName = "You";
@@ -857,11 +856,41 @@ function getOuterBoardCenterX(gridOffsetX, boardPixelSize){
   return outerX + (outerWidth / 2);
 }
 
-function updateSharedClock(currentTimer, limit){
+function getRemainingCentiseconds(currentTimer, limit){
   if(!Number.isFinite(currentTimer) || !Number.isFinite(limit) || limit <= 0){
-    return;
+    return null;
   }
-  sharedTimeRemaining = Math.max(0, Math.ceil((limit - currentTimer) / 100));
+  return Math.max(0, Math.ceil((limit - currentTimer) / 100));
+}
+
+function formatClockLabel(remainingCentiseconds){
+  if(!Number.isFinite(remainingCentiseconds)){
+    return "--.-s";
+  }
+  return (remainingCentiseconds / 10).toFixed(1) + "s";
+}
+
+function renderBoardClock(centerX, centerY, remainingCentiseconds, accentColor, subtitle){
+  var clockWidth = 132;
+  var clockHeight = 54;
+  var left = centerX - (clockWidth / 2);
+  var top = centerY - (clockHeight / 2);
+
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = accentColor;
+  ctx.roundRect(left, top, clockWidth, clockHeight, 10, true, false);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 1;
+  ctx.roundRect(left, top, clockWidth, clockHeight, 10, false, true);
+
+  var mainText = formatClockLabel(remainingCentiseconds);
+  ctx.fillStyle = accentColor;
+  ctx.font = "bold 20px Arial";
+  ctx.fillText(mainText, centerX - (ctx.measureText(mainText).width / 2), top + 23);
+
+  ctx.font = "12px Arial";
+  ctx.fillText(subtitle, centerX - (ctx.measureText(subtitle).width / 2), top + 41);
 }
 
 
@@ -998,7 +1027,6 @@ function initMultiplayer(){
     startButton.disabled = false;
     startButton.textContent = "Start";
     setMatchmakingVisible(true);
-    sharedTimeRemaining = "--";
     pendingPredictions = [];
     setShopVisible(false);
     setMatchStatus(payload.reason || "Match ended.");
@@ -1053,16 +1081,31 @@ function enterFrame(){
   var layout = updateBoardLayout();
   renderBoardHeaders();
 
-  var timerCenterX = layout.timerCenterX;
+  var myBoardCenterX = getOuterBoardCenterX(gridOffSetX, overallGridSize);
+  var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, (layout.opponentGridSize * cellSize));
+  var myRemainingTime = getRemainingCentiseconds(timer, timeLimit);
+  var opponentRemainingTime = getRemainingCentiseconds(opponentState && opponentState.timer, opponentState && opponentState.timeLimit);
 
-  renderStopwatch(timerCenterX,96);
-  renderStopwatchHand(timerCenterX,96,timer || 0);
+  var myClockColor = CANVAS_ACCENT;
+  var opponentClockColor = CANVAS_ACCENT;
+  if(Number.isFinite(myRemainingTime) && Number.isFinite(opponentRemainingTime)){
+    if(myRemainingTime > opponentRemainingTime){
+      myClockColor = "#62e78b";
+      opponentClockColor = CANVAS_DANGER;
+    } else if(opponentRemainingTime > myRemainingTime){
+      myClockColor = CANVAS_DANGER;
+      opponentClockColor = "#62e78b";
+    }
+  }
+
+  renderBoardClock(myBoardCenterX, 86, myRemainingTime, myClockColor, "Your clock");
+  renderBoardClock(opponentBoardCenterX, 86, opponentRemainingTime, opponentClockColor, "Opponent clock");
+
+  var timerCenterX = layout.timerCenterX;
   ctx.font = "14px Arial";
   ctx.fillStyle = CANVAS_ACCENT;
-  var timeLabel = "Time: " + sharedTimeRemaining;
   var roundLabel = "Round: " + currentRound + "/" + totalRounds;
-  ctx.fillText(timeLabel, timerCenterX - (ctx.measureText(timeLabel).width / 2), 142);
-  ctx.fillText(roundLabel, timerCenterX - (ctx.measureText(roundLabel).width / 2), 160);
+  ctx.fillText(roundLabel, timerCenterX - (ctx.measureText(roundLabel).width / 2), 150);
 
   if(gameMode == "play" || gameMode == "gameOver" || gameMode == "countdown" || gameMode == "shop" || gameMode == "roundOver"){
     renderBackdrop();
@@ -1501,7 +1544,6 @@ function applyServerState(state){
   currentRound = state.round || currentRound;
   winnerText = state.winnerText || "";
   timeLimit = state.timeLimit;
-  updateSharedClock(timer, timeLimit);
   gridSize = state.gridSize;
   grid = state.grid;
   gridGuesses = state.gridGuesses;
