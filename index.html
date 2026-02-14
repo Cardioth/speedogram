@@ -530,7 +530,32 @@ var currentRound = 1;
 var totalRounds = 5;
 var winnerText = "";
 
-var socket = typeof io !== "undefined" ? io() : null;
+function getOrCreateLocalPlayerId(){
+  var storageKey = "speedogram.playerId";
+  var existing = "";
+  try {
+    existing = localStorage.getItem(storageKey) || "";
+  } catch (_error) {
+    existing = "";
+  }
+  if(existing && /^[a-zA-Z0-9_-]{8,48}$/.test(existing)){
+    return existing;
+  }
+  var generated = "p_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  generated = generated.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+  if(generated.length < 8){
+    generated = (generated + "speedogram").slice(0, 8);
+  }
+  try {
+    localStorage.setItem(storageKey, generated);
+  } catch (_error) {
+    // Ignore storage failures (private browsing, disabled storage, etc.)
+  }
+  return generated;
+}
+
+var stablePlayerId = getOrCreateLocalPlayerId();
+var socket = typeof io !== "undefined" ? io({ auth: { playerId: stablePlayerId } }) : null;
 var myPlayerName = "";
 var latestRoster = [];
 var latestLeaderboard = [];
