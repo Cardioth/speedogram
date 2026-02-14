@@ -23,12 +23,12 @@ const SHOP_TIER_CONFIG = {
   epic: { multiplier: 2, label: "Epic" }
 };
 const UPGRADE_DEFS = [
-  { id: "extra-second-per-solve", description: "+{value}s more time per puzzle solved", tier: "common", cost: 3, baseValue: 1, effect: "perSolveTimeBonusMs", effectScale: 1000 },
-  { id: "start-revealed-cell", description: "+{value} revealed starting cell(s)", tier: "common", cost: 4, baseValue: 1, effect: "startRevealedCells", effectScale: 1 },
-  { id: "plus-5-start-time", description: "+{value}s starting time", tier: "rare", cost: 6, baseValue: 5, effect: "startingTimeBonusMs", effectScale: 1000 },
-  { id: "plus-2-next-round-points", description: "+{value} bonus point(s) next round", tier: "rare", cost: 7, baseValue: 2, effect: "nextRoundPointBonus", effectScale: 1 },
-  { id: "opp-minus-2-start-time", description: "Opponent -{value}s starting time", tier: "epic", cost: 9, baseValue: 2, effect: "incomingStartPenaltyMs", effectScale: 1000, target: "opponent" },
-  { id: "opp-bomb-cell", description: "Plant bomb trap for opponent", tier: "epic", cost: 8, baseValue: 1, effect: "incomingBombNextRound", target: "opponent", booleanEffect: true }
+  { id: "extra-second-per-solve", description: "+{value}s more time per puzzle solved", tier: "common", cost: 2, baseValue: 1, effect: "perSolveTimeBonusMs", effectScale: 1000 },
+  { id: "start-revealed-cell", description: "+{value} revealed starting cell(s)", tier: "common", cost: 2, baseValue: 1, effect: "startRevealedCells", effectScale: 1 },
+  { id: "plus-5-start-time", description: "+{value}s starting time", tier: "rare", cost: 2, baseValue: 5, effect: "startingTimeBonusMs", effectScale: 1000 },
+  { id: "plus-2-next-round-points", description: "+{value} bonus point(s) next round", tier: "rare", cost: 2, baseValue: 2, effect: "nextRoundPointBonus", effectScale: 1 },
+  { id: "opp-minus-2-start-time", description: "Opponent -{value}s starting time", tier: "epic", cost: 2, baseValue: 2, effect: "incomingStartPenaltyMs", effectScale: 1000, target: "opponent" },
+  { id: "opp-bomb-cell", description: "Plant bomb trap for opponent", tier: "epic", cost: 2, baseValue: 1, effect: "incomingBombNextRound", target: "opponent", booleanEffect: true }
 ];
 
 const players = new Map();
