@@ -1062,7 +1062,7 @@ var boardClockFacePath = new Path2D('M 8.5 -38.9 Q 7.95 -39.45 7.2 -39.45 L -7.9
 
 function renderBoardClock(centerX, centerY, remainingCentiseconds, accentColor){
   var clockScale = 0.8;
-  var handProgress = Number.isFinite(remainingCentiseconds) ? ((remainingCentiseconds % 600) / 600) : 0;
+  var handProgress = Number.isFinite(remainingCentiseconds) ? (((600 - (remainingCentiseconds % 600)) % 600) / 600) : 0;
 
   ctx.save();
   ctx.translate(centerX, centerY);
@@ -1076,7 +1076,7 @@ function renderBoardClock(centerX, centerY, remainingCentiseconds, accentColor){
   ctx.fillStyle = accentColor;
   ctx.fill(boardClockFacePath);
 
-  ctx.rotate((-Math.PI / 2) + ((Math.PI * 2) * handProgress));
+  ctx.rotate((Math.PI * 2) * handProgress);
   ctx.fillRect(-2.1, -18, 4.2, 18);
   ctx.restore();
 
@@ -1786,7 +1786,7 @@ function applyServerState(state){
 
   reconcilePendingPredictions();
 
-  if(!suppressSoundsThisUpdate && previousGameMode === "play" && gameMode === "play" && Number.isFinite(previousLives) && Number.isFinite(lives) && lives < previousLives){
+  if(!suppressSoundsThisUpdate && previousGameMode === "play" && Number.isFinite(previousLives) && Number.isFinite(lives) && lives < previousLives){
     playSound("heartDamage");
   }
 
