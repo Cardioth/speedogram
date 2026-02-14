@@ -354,21 +354,23 @@ function getRoundPuzzle(match, round, level, gridSize) {
 }
 
 function formatUpgradeLabel(upgradeDef, appliedValue, tierConfig) {
-  const multiplierText = `${tierConfig.multiplier}x`;
   const effectText = upgradeDef.description.replace("{value}", String(appliedValue));
-  return `[${tierConfig.label} ${multiplierText}] ${effectText} (${upgradeDef.cost} pts)`;
+  return `${tierConfig.label} • ${effectText} (${upgradeDef.cost} pts)`;
 }
 
 function toUpgradeOffer(upgradeDef) {
   const tierConfig = SHOP_TIER_CONFIG[upgradeDef.tier] || SHOP_TIER_CONFIG.common;
   const rawValue = upgradeDef.booleanEffect ? 1 : (upgradeDef.baseValue || 0) * tierConfig.multiplier;
   const appliedValue = upgradeDef.booleanEffect ? 1 : Math.max(1, Math.round(rawValue));
+  const effectText = upgradeDef.description.replace("{value}", String(appliedValue));
   return {
     id: upgradeDef.id,
     tier: upgradeDef.tier,
     multiplier: tierConfig.multiplier,
     cost: upgradeDef.cost,
     appliedValue,
+    tierLabel: tierConfig.label,
+    effectText,
     label: formatUpgradeLabel(upgradeDef, appliedValue, tierConfig)
   };
 }
