@@ -18,19 +18,81 @@
     min-height: 100vh;
     font-family: "Inter", "Segoe UI", Arial, sans-serif;
     color: var(--text);
+    position: relative;
+    overflow-x: hidden;
     background:
       radial-gradient(circle at 12% 20%, rgba(64, 144, 255, 0.24), transparent 34%),
       radial-gradient(circle at 85% 12%, rgba(120, 88, 255, 0.22), transparent 28%),
       linear-gradient(150deg, var(--bg-1), var(--bg-2));
+    background-size: 145% 145%, 155% 155%, 100% 100%;
+    animation: bgShift 18s ease-in-out infinite alternate;
   }
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background-image: linear-gradient(rgba(120, 176, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(120, 176, 255, 0.04) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(135, 192, 255, 0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(135, 192, 255, 0.09) 1px, transparent 1px);
     background-size: 42px 42px;
-    opacity: 0.5;
+    opacity: 0.68;
+    animation: gridDrift 22s linear infinite;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: -18% -10%;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(64, 144, 255, 0.36), transparent 40%),
+      radial-gradient(circle at 80% 20%, rgba(120, 88, 255, 0.33), transparent 42%),
+      radial-gradient(circle at 56% 80%, rgba(58, 134, 255, 0.2), transparent 36%);
+    filter: blur(14px);
+    opacity: 0.88;
+    transform-origin: center;
+    animation: auroraPulse 10s ease-in-out infinite alternate, auroraDrift 24s ease-in-out infinite;
+    z-index: -1;
+  }
+  @keyframes bgShift {
+    0% {
+      background-position: 0% 0%, 100% 0%, 50% 50%;
+    }
+    100% {
+      background-position: 20% 14%, 84% 18%, 50% 50%;
+    }
+  }
+  @keyframes auroraPulse {
+    0% {
+      opacity: 0.58;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0.92;
+      transform: scale(1.08);
+    }
+  }
+  @keyframes auroraDrift {
+    0% {
+      transform: translate3d(-1%, 0%, 0) rotate(0deg);
+    }
+    50% {
+      transform: translate3d(2%, -2%, 0) rotate(1.2deg);
+    }
+    100% {
+      transform: translate3d(-1%, 1%, 0) rotate(-1deg);
+    }
+  }
+  @keyframes gridDrift {
+    0% {
+      background-position: 0 0, 0 0;
+      opacity: 0.62;
+    }
+    50% {
+      opacity: 0.78;
+    }
+    100% {
+      background-position: 42px 42px, 42px 42px;
+      opacity: 0.66;
+    }
   }
   #appHeader {
     width: min(960px, calc(100vw - 32px));
