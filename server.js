@@ -123,6 +123,12 @@ function makePlayerTag(playerId) {
   return String(playerId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-4) || "0000";
 }
 
+function normalizeLeaderboardPlayerId(rawId, fallbackId) {
+  const normalized = String(rawId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+  if (normalized) return normalized;
+  return `sock_${String(fallbackId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-12) || "anon"}`;
+}
+
 function makeAnonTag(playerId) {
   const source = String(playerId || "");
   let hash = 0;
@@ -551,8 +557,8 @@ function emitMatchState(match) {
   p2.lastLevel = match.states[p2Id].level;
   p2.lastLives = match.states[p2Id].lives;
 
-  updateLeaderboardEntry(p1.id, p1.displayName, match.states[p1Id].points);
-  updateLeaderboardEntry(p2.id, p2.displayName, match.states[p2Id].points);
+  updateLeaderboardEntry(p1.leaderboardId, p1.displayName, match.states[p1Id].points);
+  updateLeaderboardEntry(p2.leaderboardId, p2.displayName, match.states[p2Id].points);
 
   io.to(p1Id).emit("match:update", {
     matchId: match.id,
@@ -804,12 +810,16 @@ setInterval(() => {
 }, 100);
 
 io.on("connection", (socket) => {
+  const claimedId = socket.handshake?.auth?.playerId || socket.handshake?.query?.playerId;
+  const leaderboardPlayerId = normalizeLeaderboardPlayerId(claimedId, socket.id);
+
   players.set(socket.id, {
     id: socket.id,
+    leaderboardId: leaderboardPlayerId,
     hasChosenName: false,
     baseName: "",
-    name: buildPlayerName("Anon", socket.id),
-    displayName: buildDisplayName("", socket.id, false),
+    name: buildPlayerName("Anon", leaderboardPlayerId),
+    displayName: buildDisplayName("", leaderboardPlayerId, false),
     status: "menu",
     matchId: null,
     lastScore: 0,
@@ -828,10 +838,10 @@ io.on("connection", (socket) => {
       player.baseName = incoming.name.trim().slice(0, 24);
       player.hasChosenName = true;
     }
-    player.name = buildPlayerName(player.baseName, player.id);
-    player.displayName = buildDisplayName(player.baseName, player.id, player.hasChosenName);
+    player.name = buildPlayerName(player.baseName, player.leaderboardId);
+    player.displayName = buildDisplayName(player.baseName, player.leaderboardId, player.hasChosenName);
 
-    updateLeaderboardEntry(player.id, player.displayName, player.lastScore || 0);
+    updateLeaderboardEntry(player.leaderboardId, player.displayName, player.lastScore || 0);
     emitPlayers();
     emitLeaderboard();
   });
@@ -894,7 +904,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const player = players.get(socket.id);
     if (player) {
-      updateLeaderboardEntry(player.id, player.displayName, player.lastScore || 0);
+      updateLeaderboardEntry(player.leaderboardId, player.displayName, player.lastScore || 0);
     }
     removeFromQueue(socket.id);
 
