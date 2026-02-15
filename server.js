@@ -618,16 +618,19 @@ function updateGridSize(state) {
 }
 
 function checkVictory(match, state) {
-  const totalGridSize = state.gridSize * state.gridSize;
-  let totalGuesses = 0;
+  let totalFilledCells = 0;
+  let discoveredFilledCells = 0;
   for (let i = 0; i < state.gridSize; i += 1) {
     for (let j = 0; j < state.gridSize; j += 1) {
-      if (state.gridGuesses[i][j] === 1) {
-        totalGuesses += 1;
+      if (state.grid[i][j] === 1) {
+        totalFilledCells += 1;
+        if (state.gridGuesses[i][j] === 1) {
+          discoveredFilledCells += 1;
+        }
       }
     }
   }
-  if (totalGuesses === totalGridSize) {
+  if (discoveredFilledCells === totalFilledCells) {
     const puzzlePoints = Math.max(1, state.gridSize - 2);
     const earnedPoints = puzzlePoints + (state.roundPointsBonus || 0);
     state.score += earnedPoints;
