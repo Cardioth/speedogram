@@ -634,7 +634,14 @@ var lives = totalLives;
 var gridSize = 3;
 var level = 0;
 var gridSizeIntervals = [3,3,3,4,4,4,5,5,5,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,9,9,10,10];
-var cellSize = 33;
+function getCellSizeForGridSize(size){
+  if(size >= 5){
+    return 31;
+  }
+  return 33;
+}
+
+var cellSize = getCellSizeForGridSize(gridSize);
 var gridBoundaryMargin = 76;
 var overallGridSize = gridSize*cellSize;
 var gridOffSetX = 120;
@@ -1778,6 +1785,7 @@ function applyServerState(state){
   Ycounters = state.Ycounters;
   columnsTotal = state.columnsTotal;
   rowsTotal = state.rowsTotal;
+  cellSize = getCellSizeForGridSize(gridSize);
 
   shopOptions = state.shopOptions || [];
   hasPurchasedThisShop = !!state.hasPurchasedThisShop;
