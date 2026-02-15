@@ -1625,17 +1625,19 @@ function reconcilePendingPredictions(){
       continue;
     }
 
-    applyLocalPrediction(action.x, action.y, action.button);
+    applyLocalPrediction(action.x, action.y, action.button, false);
     remaining.push(action);
   }
 
   pendingPredictions = remaining;
 }
 
-function applyLocalPrediction(x, y, button){
+function applyLocalPrediction(x, y, button, shouldPlayDamageSound){
   if(!grid || !gridGuesses || !grid[x] || !gridGuesses[x]){
     return;
   }
+
+  var livesBeforePrediction = lives;
 
   if(grid[x][y] === 1 && gridGuesses[x][y] !== 1){
     gridGuesses[x][y] = 1;
@@ -1676,6 +1678,10 @@ function applyLocalPrediction(x, y, button){
     lives = 0;
     gameMode = "gameOver";
   }
+
+  if(shouldPlayDamageSound && Number.isFinite(livesBeforePrediction) && Number.isFinite(lives) && lives < livesBeforePrediction){
+    playSound("heartDamage");
+  }
 }
 
 function sendActionFromPointerDrag(button){
@@ -1691,7 +1697,7 @@ function sendActionFromPointerDrag(button){
         lastDraggedCell = { x: i, y: j, button: button };
         pendingPredictions.push({ x: i, y: j, button: button, puzzleId: currentPuzzleId, createdAt: Date.now() });
         prunePendingPredictions();
-        applyLocalPrediction(i, j, button);
+        applyLocalPrediction(i, j, button, true);
         if(button === 0){
           playSound("cellFilled");
         }
