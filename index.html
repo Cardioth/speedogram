@@ -387,7 +387,7 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: min(760px, calc(100% - 60px));
+    width: min(840px, calc(100% - 60px));
     text-align: center;
     color: var(--text);
     font-size: 13px;
@@ -395,7 +395,8 @@
     background: #0f1940;
     border: 1px solid rgba(127, 182, 255, 0.7);
     border-radius: 16px;
-    padding: 18px 16px;
+    min-height: 320px;
+    padding: 22px 20px;
     box-shadow: 0 20px 40px rgba(3, 8, 30, 0.7);
   }
   #shopTitle {
@@ -419,8 +420,8 @@
     background: rgba(17, 27, 58, 0.96);
     border-radius: 14px;
     color: #dbeaff;
-    width: 190px;
-    height: 190px;
+    width: 210px;
+    height: 250px;
     padding: 0;
     cursor: pointer;
     position: relative;
@@ -430,12 +431,28 @@
   }
   .shopChoiceBtn .shopChoiceIcon {
     position: absolute;
-    top: 42%;
+    top: 78px;
     left: 50%;
     width: 56px;
     height: 56px;
     transform: translate(-50%, -50%);
     color: var(--accent);
+  }
+  .shopChoiceBtn .shopChoiceTitle {
+    position: absolute;
+    top: 120px;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: block;
+    width: calc(100% - 28px);
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.2;
+    letter-spacing: 0.35px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #eff6ff;
+    text-shadow: 0 0 14px rgba(155, 216, 255, 0.8);
   }
   .shopChoiceBtn .shopChoiceIcon::before {
     content: "";
@@ -447,15 +464,15 @@
   }
   .shopChoiceBtn .shopChoiceText {
     position: absolute;
-    top: 72%;
+    top: 176px;
     left: 50%;
     transform: translate(-50%, -50%);
     display: block;
-    max-width: 160px;
+    width: calc(100% - 30px);
     text-align: center;
     font-size: 13px;
-    line-height: 1.3;
-    font-weight: 600;
+    line-height: 1.35;
+    font-weight: 550;
     color: #d5e8ff;
   }
   .shopChoiceBtn .shopChoiceCost {
@@ -947,16 +964,29 @@ function renderShopChoices(){
       tierLabel.textContent = option.tierLabel || (option.tier ? option.tier.toUpperCase() : "UPGRADE");
       var iconPlaceholder = document.createElement("span");
       iconPlaceholder.className = "shopChoiceIcon";
+      var titleLabel = document.createElement("span");
+      titleLabel.className = "shopChoiceTitle";
       var label = document.createElement("span");
       label.className = "shopChoiceText";
       var optionCost = Number.isFinite(option.cost) ? option.cost : 0;
       var effectLabel = option.effectText || option.label || "Upgrade";
+      var titleText = option.displayTitle || option.name || "Power Up";
+      if(!option.displayTitle && option.id){
+        titleText = option.id
+          .split("-")
+          .map(function(word){
+            return word ? word.charAt(0).toUpperCase() + word.slice(1) : "";
+          })
+          .join(" ");
+      }
+      titleLabel.textContent = titleText;
       label.textContent = effectLabel;
       var costLabel = document.createElement("span");
       costLabel.className = "shopChoiceCost";
       costLabel.textContent = optionCost + " pts";
       button.appendChild(tierLabel);
       button.appendChild(iconPlaceholder);
+      button.appendChild(titleLabel);
       button.appendChild(label);
       button.appendChild(costLabel);
       var canAfford = shopPoints >= optionCost;
