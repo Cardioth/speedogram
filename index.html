@@ -385,9 +385,14 @@
   #shopPanel {
     position: absolute;
     left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: min(840px, calc(100% - 60px));
+    top: 0;
+    transform: translateX(-50%);
+    width: min(900px, calc(100vw - 42px));
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     text-align: center;
     color: var(--text);
     font-size: 13px;
@@ -395,7 +400,6 @@
     background: #0f1940;
     border: 1px solid rgba(127, 182, 255, 0.7);
     border-radius: 16px;
-    min-height: 320px;
     padding: 22px 20px;
     box-shadow: 0 20px 40px rgba(3, 8, 30, 0.7);
   }
