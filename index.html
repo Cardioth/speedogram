@@ -706,6 +706,7 @@ var HEART_ICON_WIDTH = 24;
 var HEART_SPACING = 25;
 var lastDraggedCell = null;
 var countdownRemaining = 0;
+var myBuffState = {};
 var helpLink = document.getElementById("helpLink");
 var helpModal = document.getElementById("helpModal");
 var closeHelpButton = document.getElementById("closeHelpButton");
@@ -1215,6 +1216,7 @@ function initMultiplayer(){
   socket.on("match:ended", function(payload){
     gameMode = "menu";
     opponentState = null;
+    myBuffState = {};
     opponentDisplayName = "Opponent";
     myDisplayName = myPlayerName || "You";
     drawOpponentBoard();
@@ -1314,6 +1316,7 @@ function enterFrame(){
     renderHealth();
     renderScore();
     drawOpponentBoard();
+    renderActiveBuffPanels();
   }
   if(gameMode == "play"){
     renderMouseOver();
@@ -1502,6 +1505,97 @@ function renderHeartsRow(centerX, y, count, drawHeart){
   for(var i = 0; i < count; i++){
     drawHeart(heartsStartX + (i*HEART_SPACING), y);
   }
+}
+
+function formatBuffSeconds(msValue){
+  var seconds = (Number(msValue) || 0) / 1000;
+  if(Math.abs(seconds - Math.round(seconds)) < 0.05){
+    return String(Math.round(seconds));
+  }
+  return seconds.toFixed(1).replace(/\.0$/, "");
+}
+
+function buildActiveBuffBadges(state){
+  if(!state){
+    return [];
+  }
+  var badges = [];
+  if((state.startingTimeBonusMs || 0) > 0){
+    badges.push({ icon: "⏱", text: "+" + formatBuffSeconds(state.startingTimeBonusMs) + "s start", tone: "good" });
+  }
+  if((state.perSolveTimeBonusMs || 0) > 0){
+    badges.push({ icon: "➕", text: "+" + formatBuffSeconds(state.perSolveTimeBonusMs) + "s/solve", tone: "good" });
+  }
+  if((state.perSolveOpponentTimeDrainMs || 0) > 0){
+    badges.push({ icon: "⚡", text: "-" + formatBuffSeconds(state.perSolveOpponentTimeDrainMs) + "s opp/solve", tone: "good" });
+  }
+  if((state.startRevealedCells || 0) > 0){
+    badges.push({ icon: "🔍", text: "+" + Math.floor(state.startRevealedCells) + " reveal", tone: "good" });
+  }
+  if((state.bombActive && state.bombCells && state.bombCells.length) || 0){
+    badges.push({ icon: "💣", text: state.bombCells.length + " trap" + (state.bombCells.length === 1 ? "" : "s"), tone: "bad" });
+  }
+  if((state.extraLifeLossOnMistake || 0) > 0){
+    badges.push({ icon: "💥", text: "+" + Math.floor(state.extraLifeLossOnMistake) + " life loss", tone: "bad" });
+  }
+  return badges;
+}
+
+function renderBuffBadges(centerX, y, badges){
+  var safeBadges = badges || [];
+  var label = safeBadges.length ? "Active effects" : "No active effects";
+  ctx.font = "11px Arial";
+  var labelWidth = ctx.measureText(label).width;
+  ctx.fillStyle = "rgba(156, 183, 216, 0.95)";
+  ctx.fillText(label, centerX - (labelWidth / 2), y);
+
+  if(!safeBadges.length){
+    return;
+  }
+
+  var currentX = centerX;
+  var currentY = y + 10;
+  var maxRowWidth = 240;
+  var rowWidth = 0;
+
+  for(var i = 0; i < safeBadges.length; i++){
+    var badge = safeBadges[i];
+    var text = (badge.icon ? badge.icon + " " : "") + badge.text;
+    var badgeWidth = Math.ceil(ctx.measureText(text).width) + 14;
+    var badgeHeight = 18;
+
+    if(rowWidth + badgeWidth > maxRowWidth && rowWidth > 0){
+      currentY += 22;
+      rowWidth = 0;
+      currentX = centerX;
+    }
+
+    var drawX = (currentX - (maxRowWidth / 2)) + rowWidth;
+    var fillStyle = badge.tone === "bad" ? "rgba(255, 111, 125, 0.2)" : "rgba(82, 182, 255, 0.2)";
+    var strokeStyle = badge.tone === "bad" ? "rgba(255, 135, 148, 0.65)" : "rgba(130, 183, 255, 0.62)";
+
+    ctx.fillStyle = fillStyle;
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = 1;
+    ctx.roundRect(drawX, currentY, badgeWidth, badgeHeight, 7, true, true);
+
+    ctx.fillStyle = "#dff1ff";
+    ctx.fillText(text, drawX + 7, currentY + 12.5);
+
+    rowWidth += badgeWidth + 6;
+  }
+}
+
+function renderActiveBuffPanels(){
+  var myBoardCenterX = getOuterBoardCenterX(gridOffSetX, overallGridSize);
+  var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
+  var opponentOverallGridSize = opponentGridSize * cellSize;
+  var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, opponentOverallGridSize);
+  var myY = gridOffSetY + overallGridSize + 58;
+  var opponentY = gridOffSetY + opponentOverallGridSize + 58;
+
+  renderBuffBadges(myBoardCenterX, myY, buildActiveBuffBadges(myBuffState));
+  renderBuffBadges(opponentBoardCenterX, opponentY, buildActiveBuffBadges(opponentState));
 }
 
 function renderHealth(){
@@ -1786,6 +1880,15 @@ function applyServerState(state){
   columnsTotal = state.columnsTotal;
   rowsTotal = state.rowsTotal;
   cellSize = getCellSizeForGridSize(gridSize);
+  myBuffState = {
+    perSolveTimeBonusMs: state.perSolveTimeBonusMs || 0,
+    perSolveOpponentTimeDrainMs: state.perSolveOpponentTimeDrainMs || 0,
+    startingTimeBonusMs: state.startingTimeBonusMs || 0,
+    startRevealedCells: state.startRevealedCells || 0,
+    extraLifeLossOnMistake: state.extraLifeLossOnMistake || 0,
+    bombActive: !!state.bombActive,
+    bombCells: Array.isArray(state.bombCells) ? state.bombCells : []
+  };
 
   shopOptions = state.shopOptions || [];
   hasPurchasedThisShop = !!state.hasPurchasedThisShop;

@@ -28,8 +28,10 @@ const UPGRADE_DEFS = [
   { id: "start-revealed-cell", description: "+{value} revealed starting cell(s)", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "startRevealedCells", effectScale: 1 },
   { id: "plus-start-time", description: "+{value}s starting time", cost: 2, tierValues: { common: 2, rare: 3, epic: 4 }, effect: "startingTimeBonusMs", effectScale: 1000 },
   { id: "plus-2-next-round-points", description: "+{value} bonus point(s) next round", cost: 2, tierValues: { common: 4, rare: 6, epic: 8 }, effect: "nextRoundPointBonus", effectScale: 1 },
+  { id: "solve-time-siphon", description: "Each solve drains opponent timer by {value}s", cost: 2, tierValues: { common: 0.4, rare: 0.6, epic: 0.9 }, effect: "perSolveOpponentTimeDrainMs", effectScale: 1000 },
   { id: "opp-minus-start-time", description: "Opponent -{value}s starting time", cost: 2, tierValues: { common: 2, rare: 3, epic: 4 }, effect: "incomingStartPenaltyMs", effectScale: 1000, target: "opponent" },
-  { id: "opp-bomb-cell", description: "Plant {value} bomb trap(s) for opponent", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "incomingBombNextRoundCount", effectScale: 1, target: "opponent" }
+  { id: "opp-bomb-cell", description: "Plant {value} bomb trap(s) for opponent", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "incomingBombNextRoundCount", effectScale: 1, target: "opponent" },
+  { id: "opp-fragile-focus", description: "Opponent mistakes cost +{value} extra life next round", cost: 2, tierValues: { common: 1, rare: 1, epic: 2 }, effect: "incomingExtraLifeLossOnMistake", effectScale: 1, target: "opponent" }
 ];
 
 const players = new Map();
@@ -406,10 +408,13 @@ function revealInitialCells(state) {
 function configureRoundState(match, state) {
   const roundBonus = state.nextRoundPointBonus || 0;
   const incomingPenalty = state.incomingStartPenaltyMs || 0;
+  const incomingMistakePenalty = state.incomingExtraLifeLossOnMistake || 0;
 
   state.roundPointsBonus = roundBonus;
   state.nextRoundPointBonus = 0;
   state.incomingStartPenaltyMs = 0;
+  state.extraLifeLossOnMistake = Math.max(0, Math.floor(incomingMistakePenalty));
+  state.incomingExtraLifeLossOnMistake = 0;
 
   state.lives = TOTAL_LIVES;
   state.timer = 0;
@@ -465,10 +470,13 @@ function makePlayerState(initialMode = "play") {
     gridSize,
     round: 1,
     perSolveTimeBonusMs: 0,
+    perSolveOpponentTimeDrainMs: 0,
     startingTimeBonusMs: 0,
     nextRoundPointBonus: 0,
     roundPointsBonus: 0,
     incomingStartPenaltyMs: 0,
+    incomingExtraLifeLossOnMistake: 0,
+    extraLifeLossOnMistake: 0,
     incomingBombNextRoundCount: 0,
     startRevealedCells: 0,
     bombActive: false,
@@ -498,7 +506,14 @@ function toPublicState(state) {
     grid: state.grid,
     gridGuesses: state.gridGuesses,
     Xcounters: state.Xcounters,
-    Ycounters: state.Ycounters
+    Ycounters: state.Ycounters,
+    perSolveTimeBonusMs: state.perSolveTimeBonusMs,
+    perSolveOpponentTimeDrainMs: state.perSolveOpponentTimeDrainMs,
+    startingTimeBonusMs: state.startingTimeBonusMs,
+    startRevealedCells: state.startRevealedCells,
+    extraLifeLossOnMistake: state.extraLifeLossOnMistake,
+    bombActive: state.bombActive,
+    bombCells: state.bombCells
   };
 }
 
@@ -644,6 +659,17 @@ function checkVictory(match, state) {
     state.roundPointsBonus = 0;
     state.level += 1;
     state.timeLimit += TIME_INCREMENT + (state.perSolveTimeBonusMs || 0);
+
+    const opponentId = match.players.find((playerId) => match.states[playerId] !== state);
+    const opponentState = opponentId ? match.states[opponentId] : null;
+    const siphonMs = Math.max(0, Math.floor(state.perSolveOpponentTimeDrainMs || 0));
+    if (opponentState && opponentState.gameMode === "play" && siphonMs > 0) {
+      opponentState.timer = Math.min(opponentState.timeLimit + 1, opponentState.timer + siphonMs);
+      if (opponentState.timer > opponentState.timeLimit) {
+        opponentState.gameMode = "roundOver";
+      }
+    }
+
     updateGridSize(state);
     state.puzzleId = (state.puzzleId || 0) + 1;
     Object.assign(state, getRoundPuzzle(match, state.round, state.level, state.gridSize));
@@ -659,7 +685,7 @@ function applyAction(match, state, x, y, button) {
   if (state.grid[x][y] === 1 && state.gridGuesses[x][y] !== 1) {
     state.gridGuesses[x][y] = 1;
     if (button !== 0) {
-      state.lives -= 1;
+      state.lives -= (1 + (state.extraLifeLossOnMistake || 0));
     } else {
       let columnGuesses = 0;
       let rowGuesses = 0;
@@ -685,7 +711,7 @@ function applyAction(match, state, x, y, button) {
     }
     state.gridGuesses[x][y] = 1;
     if (!triggeredBomb && button !== 2) {
-      state.lives -= 1;
+      state.lives -= (1 + (state.extraLifeLossOnMistake || 0));
     }
   }
 
