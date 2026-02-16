@@ -759,6 +759,12 @@ var closeHelpButton = document.getElementById("closeHelpButton");
 var helpDemoCells = Array.prototype.slice.call(document.querySelectorAll("[data-demo-cell]"));
 var helpDemoTimer = null;
 var helpDemoStep = 0;
+function sanitizeTypedPlayerName(rawName){
+  return String(rawName || "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 24);
+}
+
 var helpDemoFrames = [
   { index: 0, state: "fill" },
   { index: 1, state: "fill" },
@@ -1304,6 +1310,10 @@ function initMultiplayer(){
     pendingPredictions = [];
     setShopVisible(false);
     setMatchStatus(payload.reason || "Match ended.");
+  });
+
+  socket.on("session:replaced", function(payload){
+    setStatus((payload && payload.message) || "Another window connected with this account.", true);
   });
 }
 
@@ -2241,9 +2251,10 @@ function renderCells(){
 
 
 startButton.addEventListener("click", function(){
-  var requestedName = playerNameInput.value && playerNameInput.value.trim();
+  var requestedName = sanitizeTypedPlayerName(playerNameInput.value);
+  playerNameInput.value = requestedName;
   if(requestedName){
-    myPlayerName = requestedName.slice(0,24);
+    myPlayerName = requestedName;
     myDisplayName = myPlayerName || "You";
   }
   sendPlayerUpdate();
@@ -2277,11 +2288,21 @@ if(soundToggleButton){
   });
 }
 
+playerNameInput.addEventListener("input", function(){
+  var requestedName = sanitizeTypedPlayerName(playerNameInput.value);
+  if(playerNameInput.value !== requestedName){
+    playerNameInput.value = requestedName;
+  }
+  myPlayerName = requestedName;
+  myDisplayName = myPlayerName || "You";
+});
+
 playerNameInput.addEventListener("change", function(){
-  var requestedName = playerNameInput.value && playerNameInput.value.trim();
+  var requestedName = sanitizeTypedPlayerName(playerNameInput.value);
+  playerNameInput.value = requestedName;
+  myPlayerName = requestedName;
+  myDisplayName = myPlayerName || "You";
   if(requestedName){
-    myPlayerName = requestedName.slice(0,24);
-    myDisplayName = myPlayerName || "You";
     sendPlayerUpdate();
   }
 });

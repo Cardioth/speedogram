@@ -37,6 +37,7 @@ const UPGRADE_DEFS = [
 const players = new Map();
 const waitingQueue = [];
 const matches = new Map();
+const activeSocketByLeaderboardId = new Map();
 const leaderboard = new Map();
 const LEADERBOARD_LIMIT = 10;
 const DAILY_LEADERBOARD_TTL_MS = 24 * 60 * 60 * 1000;
@@ -174,9 +175,7 @@ function makeAnonTag(playerId) {
 function sanitizePlayerName(rawName, fallback = "Anon") {
   const compacted = String(rawName || "")
     .normalize("NFKC")
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
+    .replace(/[^a-zA-Z0-9]/g, "")
     .slice(0, 24);
 
   return compacted || fallback;
@@ -569,7 +568,24 @@ function toPublicState(state) {
 }
 
 function buildPlayerList() {
-  return Array.from(players.values()).map((player) => ({
+  const uniquePlayers = new Map();
+
+  Array.from(players.values()).forEach((player) => {
+    const existing = uniquePlayers.get(player.leaderboardId);
+    if (!existing) {
+      uniquePlayers.set(player.leaderboardId, player);
+      return;
+    }
+
+    const existingPriority = Number(Boolean(existing.matchId));
+    const playerPriority = Number(Boolean(player.matchId));
+
+    if (playerPriority > existingPriority || ((player.connectedAt || 0) > (existing.connectedAt || 0))) {
+      uniquePlayers.set(player.leaderboardId, player);
+    }
+  });
+
+  return Array.from(uniquePlayers.values()).map((player) => ({
     id: player.id,
     name: player.displayName,
     score: player.lastScore || 0,
@@ -941,6 +957,17 @@ setInterval(() => {
 io.on("connection", (socket) => {
   const claimedId = socket.handshake?.auth?.playerId || socket.handshake?.query?.playerId;
   const leaderboardPlayerId = normalizeLeaderboardPlayerId(claimedId, socket.id);
+  const activeSocketId = activeSocketByLeaderboardId.get(leaderboardPlayerId);
+
+  if (activeSocketId && activeSocketId !== socket.id) {
+    const activeSocket = io.sockets.sockets.get(activeSocketId);
+    if (activeSocket?.connected) {
+      activeSocket.emit("session:replaced", { message: "Another game window took over this account." });
+      activeSocket.disconnect(true);
+    }
+  }
+
+  activeSocketByLeaderboardId.set(leaderboardPlayerId, socket.id);
 
   players.set(socket.id, {
     id: socket.id,
@@ -954,7 +981,8 @@ io.on("connection", (socket) => {
     lastScore: 0,
     lastShopPoints: 0,
     lastLevel: 0,
-    lastLives: TOTAL_LIVES
+    lastLives: TOTAL_LIVES,
+    connectedAt: Date.now()
   });
 
   emitPlayers();
@@ -1035,6 +1063,9 @@ io.on("connection", (socket) => {
     const player = players.get(socket.id);
     if (player) {
       updateLeaderboardEntry(player.leaderboardId, player.displayName, player.lastScore || 0);
+      if (activeSocketByLeaderboardId.get(player.leaderboardId) === socket.id) {
+        activeSocketByLeaderboardId.delete(player.leaderboardId);
+      }
     }
     removeFromQueue(socket.id);
 
