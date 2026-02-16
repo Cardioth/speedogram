@@ -50,4 +50,5 @@ When connected, the server logs `[leaderboard] Connected to Redis.` and the top 
 
 - Each connected player appears in the **Live Players** panel.
 - The panel updates in real time with each player's score, level, lives, and game state.
-- Gameplay itself remains the same classic Speed-o-Gram loop.
+- Rounds now include interactive shop upgrades like time siphons, bomb traps, and mistake penalties that directly pressure your opponent.
+- Active-effect badges now appear under both boards so each player can clearly see current buffs/debuffs in real time.
