@@ -24,14 +24,14 @@ const SHOP_TIER_CONFIG = {
 };
 const SHOP_TIERS = ["common", "rare", "epic"];
 const UPGRADE_DEFS = [
-  { id: "extra-second-per-solve", description: "+{value}s more time per puzzle solved", cost: 2, tierValues: { common: 0.5, rare: 1, epic: 1.5 }, effect: "perSolveTimeBonusMs", effectScale: 1000 },
-  { id: "start-revealed-cell", description: "+{value} revealed starting cell(s)", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "startRevealedCells", effectScale: 1 },
-  { id: "plus-start-time", description: "+{value}s starting time", cost: 2, tierValues: { common: 2, rare: 3, epic: 4 }, effect: "startingTimeBonusMs", effectScale: 1000 },
+  { id: "extra-second-per-solve", description: "+{value}s more time per puzzle solved (stacks permanently)", cost: 2, tierValues: { common: 0.5, rare: 1, epic: 1.5 }, effect: "perSolveTimeBonusMs", effectScale: 1000 },
+  { id: "start-revealed-cell", description: "+{value} revealed starting cell(s) each round (stacks permanently)", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "startRevealedCells", effectScale: 1 },
+  { id: "plus-start-time", description: "+{value}s starting time each round (stacks permanently)", cost: 2, tierValues: { common: 2, rare: 3, epic: 4 }, effect: "startingTimeBonusMs", effectScale: 1000 },
   { id: "plus-2-next-round-points", description: "+{value} bonus point(s) next round", cost: 2, tierValues: { common: 4, rare: 6, epic: 8 }, effect: "nextRoundPointBonus", effectScale: 1 },
-  { id: "solve-time-siphon", description: "Each solve drains opponent timer by {value}s", cost: 2, tierValues: { common: 0.4, rare: 0.6, epic: 0.9 }, effect: "perSolveOpponentTimeDrainMs", effectScale: 1000 },
-  { id: "opp-minus-start-time", description: "Opponent -{value}s starting time", cost: 2, tierValues: { common: 2, rare: 3, epic: 4 }, effect: "incomingStartPenaltyMs", effectScale: 1000, target: "opponent" },
-  { id: "opp-bomb-cell", description: "Plant {value} bomb trap(s) for opponent", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "incomingBombNextRoundCount", effectScale: 1, target: "opponent" },
-  { id: "opp-fragile-focus", description: "Opponent mistakes cost +{value} extra life next round", cost: 2, tierValues: { common: 1, rare: 1, epic: 2 }, effect: "incomingExtraLifeLossOnMistake", effectScale: 1, target: "opponent" }
+  { id: "solve-time-siphon", description: "Each solve drains opponent timer by {value}s (stacks permanently)", cost: 2, tierValues: { common: 0.4, rare: 0.6, epic: 0.9 }, effect: "perSolveOpponentTimeDrainMs", effectScale: 1000 },
+  { id: "opp-minus-start-time", description: "Opponent -{value}s starting time each round (stacks permanently)", cost: 2, tierValues: { common: 2, rare: 3, epic: 4 }, effect: "opponentStartPenaltyMs", effectScale: 1000, target: "opponent" },
+  { id: "opp-bomb-cell", description: "Plant {value} visible bomb trap(s) for opponent (next round only)", cost: 2, tierValues: { common: 1, rare: 2, epic: 3 }, effect: "incomingBombNextRoundCount", effectScale: 1, target: "opponent" },
+  { id: "opp-fragile-focus", description: "Opponent mistakes cost +{value} extra life (stacks permanently)", cost: 2, tierValues: { common: 1, rare: 1, epic: 2 }, effect: "extraLifeLossOnMistake", effectScale: 1, target: "opponent" }
 ];
 
 const players = new Map();
@@ -407,14 +407,11 @@ function revealInitialCells(state) {
 
 function configureRoundState(match, state) {
   const roundBonus = state.nextRoundPointBonus || 0;
-  const incomingPenalty = state.incomingStartPenaltyMs || 0;
-  const incomingMistakePenalty = state.incomingExtraLifeLossOnMistake || 0;
+  const incomingPenalty = state.opponentStartPenaltyMs || 0;
 
   state.roundPointsBonus = roundBonus;
   state.nextRoundPointBonus = 0;
-  state.incomingStartPenaltyMs = 0;
-  state.extraLifeLossOnMistake = Math.max(0, Math.floor(incomingMistakePenalty));
-  state.incomingExtraLifeLossOnMistake = 0;
+  state.extraLifeLossOnMistake = Math.max(0, Math.floor(state.extraLifeLossOnMistake || 0));
 
   state.lives = TOTAL_LIVES;
   state.timer = 0;
@@ -474,8 +471,7 @@ function makePlayerState(initialMode = "play") {
     startingTimeBonusMs: 0,
     nextRoundPointBonus: 0,
     roundPointsBonus: 0,
-    incomingStartPenaltyMs: 0,
-    incomingExtraLifeLossOnMistake: 0,
+    opponentStartPenaltyMs: 0,
     extraLifeLossOnMistake: 0,
     incomingBombNextRoundCount: 0,
     startRevealedCells: 0,

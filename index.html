@@ -1496,6 +1496,44 @@ function renderCross(x,y){
   ctx.translate(-x,-y);
 }
 
+function isBombTrapCell(x, y){
+  if(!myBuffState || !myBuffState.bombActive || !Array.isArray(myBuffState.bombCells)){
+    return false;
+  }
+  for(var i = 0; i < myBuffState.bombCells.length; i++){
+    var bombCell = myBuffState.bombCells[i];
+    if(bombCell && bombCell.x === x && bombCell.y === y){
+      return true;
+    }
+  }
+  return false;
+}
+
+function renderBombTrapMarker(x,y){
+  var centerX = x + (cellSize / 2);
+  var centerY = y + (cellSize / 2);
+  var radius = Math.max(4, Math.floor(cellSize * 0.2));
+
+  ctx.save();
+  ctx.fillStyle = "rgba(18, 26, 44, 0.95)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#a7b6d8";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(centerX + radius * 0.3, centerY - radius * 0.9);
+  ctx.lineTo(centerX + radius * 0.95, centerY - radius * 1.55);
+  ctx.stroke();
+
+  ctx.fillStyle = "#ff6b5a";
+  ctx.beginPath();
+  ctx.arc(centerX + radius * 1.05, centerY - radius * 1.62, Math.max(1.5, radius * 0.28), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function renderHeartsRow(centerX, y, count, drawHeart){
   if(count <= 0){
     return;
@@ -2115,6 +2153,9 @@ function renderCells(){
       }
       if(gridGuesses[i][j] == 1 && grid[i][j] == 0){
         renderCross(i*cellSize+gridOffSetX-3,j*cellSize+gridOffSetY-3);
+      }
+      if(gridGuesses[i][j] !== 1 && isBombTrapCell(i, j)){
+        renderBombTrapMarker(i*cellSize+gridOffSetX, j*cellSize+gridOffSetY);
       }
     }
   }
