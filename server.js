@@ -193,26 +193,91 @@ app.get("/", (_req, res) => {
 
 app.use(express.static(STATIC_DIR, { index: false }));
 
-function makePuzzle(gridSize) {
-  const grid = [];
+function makeLinePatterns(length, clues) {
+  const normalizedClues = Array.isArray(clues) ? clues.filter((value) => value > 0) : [];
+  if (!normalizedClues.length) {
+    return [Array(length).fill(0)];
+  }
+
+  const patterns = [];
+
+  function placeRun(clueIndex, startPos, line) {
+    if (clueIndex === normalizedClues.length) {
+      for (let i = startPos; i < length; i += 1) line[i] = 0;
+      patterns.push(line.slice());
+      return;
+    }
+
+    const runLength = normalizedClues[clueIndex];
+    const remainingRuns = normalizedClues.slice(clueIndex + 1);
+    const remainingRunCells = remainingRuns.reduce((sum, value) => sum + value, 0);
+    const remainingSeparators = remainingRuns.length;
+    const maxStart = length - (runLength + remainingRunCells + remainingSeparators);
+
+    for (let runStart = startPos; runStart <= maxStart; runStart += 1) {
+      for (let i = startPos; i < runStart; i += 1) line[i] = 0;
+      for (let i = runStart; i < runStart + runLength; i += 1) line[i] = 1;
+
+      const nextPos = runStart + runLength;
+      if (clueIndex < normalizedClues.length - 1) {
+        line[nextPos] = 0;
+        placeRun(clueIndex + 1, nextPos + 1, line);
+      } else {
+        placeRun(clueIndex + 1, nextPos, line);
+      }
+    }
+  }
+
+  placeRun(0, 0, Array(length).fill(0));
+  return patterns;
+}
+
+function countPuzzleSolutions(gridSize, Xcounters, Ycounters, maxSolutions = 2) {
+  const rowPatterns = Ycounters.map((rowClues) => makeLinePatterns(gridSize, rowClues));
+  const columnCandidates = Xcounters.map((columnClues) => makeLinePatterns(gridSize, columnClues));
+  let solutions = 0;
+
+  function searchRow(rowIndex, candidates) {
+    if (solutions >= maxSolutions) return;
+
+    if (rowIndex === gridSize) {
+      solutions += 1;
+      return;
+    }
+
+    for (const rowPattern of rowPatterns[rowIndex]) {
+      const nextCandidates = [];
+      let valid = true;
+
+      for (let column = 0; column < gridSize; column += 1) {
+        const filtered = candidates[column].filter((pattern) => pattern[rowIndex] === rowPattern[column]);
+        if (!filtered.length) {
+          valid = false;
+          break;
+        }
+        nextCandidates.push(filtered);
+      }
+
+      if (valid) {
+        searchRow(rowIndex + 1, nextCandidates);
+      }
+
+      if (solutions >= maxSolutions) return;
+    }
+  }
+
+  searchRow(0, columnCandidates);
+  return solutions;
+}
+
+function buildPuzzleFromGrid(grid, gridSize) {
   const gridGuesses = [];
   const columnsTotal = [];
   const rowsTotal = [];
   const Xcounters = [];
   const Ycounters = [];
 
-  for (let i = 0; i < gridSize; i += 1) {
-    const gridX = [];
-    const gridGuessesX = [];
-    for (let j = 0; j < gridSize; j += 1) {
-      let randomNumber = Math.floor(Math.random() * 3);
-      if (randomNumber > 1) randomNumber = 1;
-      gridX.push(randomNumber);
-      gridGuessesX.push(0);
-    }
-    grid.push(gridX);
-    gridGuesses.push(gridGuessesX);
-  }
+  for (let i = 0; i < gridSize; i += 1) gridGuesses.push(Array(gridSize).fill(0));
 
   for (let i = 0; i < gridSize; i += 1) {
     const column = [];
@@ -251,6 +316,41 @@ function makePuzzle(gridSize) {
   }
 
   return { grid, gridGuesses, columnsTotal, rowsTotal, Xcounters, Ycounters };
+}
+
+function makeRandomGrid(gridSize, randomFn) {
+  const grid = [];
+  for (let i = 0; i < gridSize; i += 1) {
+    const column = [];
+    for (let j = 0; j < gridSize; j += 1) {
+      let randomNumber = Math.floor(randomFn() * 3);
+      if (randomNumber > 1) randomNumber = 1;
+      column.push(randomNumber);
+    }
+    grid.push(column);
+  }
+  return grid;
+}
+
+function makeFilledGrid(gridSize, value) {
+  return Array.from({ length: gridSize }, () => Array(gridSize).fill(value));
+}
+
+function makeUniquePuzzleFromRandom(gridSize, randomFn) {
+  const MAX_UNIQUE_PUZZLE_ATTEMPTS = 10000;
+  for (let attempt = 0; attempt < MAX_UNIQUE_PUZZLE_ATTEMPTS; attempt += 1) {
+    const puzzle = buildPuzzleFromGrid(makeRandomGrid(gridSize, randomFn), gridSize);
+    if (countPuzzleSolutions(gridSize, puzzle.Xcounters, puzzle.Ycounters, 2) === 1) {
+      return puzzle;
+    }
+  }
+
+  console.warn(`[puzzle] Failed to find a unique ${gridSize}x${gridSize} puzzle after ${MAX_UNIQUE_PUZZLE_ATTEMPTS} attempts. Falling back to a deterministic puzzle.`);
+  return buildPuzzleFromGrid(makeFilledGrid(gridSize, 1), gridSize);
+}
+
+function makePuzzle(gridSize) {
+  return makeUniquePuzzleFromRandom(gridSize, Math.random);
 }
 
 function hashSeed(input) {
@@ -274,63 +374,7 @@ function makeSeededRandom(seedInput) {
 }
 
 function makePuzzleWithRandom(gridSize, randomFn) {
-  const grid = [];
-  const gridGuesses = [];
-  const columnsTotal = [];
-  const rowsTotal = [];
-  const Xcounters = [];
-  const Ycounters = [];
-
-  for (let i = 0; i < gridSize; i += 1) {
-    const gridX = [];
-    const gridGuessesX = [];
-    for (let j = 0; j < gridSize; j += 1) {
-      let randomNumber = Math.floor(randomFn() * 3);
-      if (randomNumber > 1) randomNumber = 1;
-      gridX.push(randomNumber);
-      gridGuessesX.push(0);
-    }
-    grid.push(gridX);
-    gridGuesses.push(gridGuessesX);
-  }
-
-  for (let i = 0; i < gridSize; i += 1) {
-    const column = [];
-    let count = 0;
-    let countTotal = 0;
-    for (let j = 0; j < gridSize; j += 1) {
-      if (grid[i][j] === 1) {
-        count += 1;
-        countTotal += 1;
-      } else if (count > 0) {
-        column.push(count);
-        count = 0;
-      }
-    }
-    if (count > 0) column.push(count);
-    columnsTotal.push(countTotal);
-    Xcounters.push(column);
-  }
-
-  for (let i = 0; i < gridSize; i += 1) {
-    const row = [];
-    let count = 0;
-    let countTotal = 0;
-    for (let j = 0; j < gridSize; j += 1) {
-      if (grid[j][i] === 1) {
-        count += 1;
-        countTotal += 1;
-        if (j === gridSize - 1) row.push(count);
-      } else if (count !== 0) {
-        row.push(count);
-        count = 0;
-      }
-    }
-    rowsTotal.push(countTotal);
-    Ycounters.push(row);
-  }
-
-  return { grid, gridGuesses, columnsTotal, rowsTotal, Xcounters, Ycounters };
+  return makeUniquePuzzleFromRandom(gridSize, randomFn);
 }
 
 function clonePuzzle(puzzle) {
