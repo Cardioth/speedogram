@@ -428,19 +428,20 @@
     font-size: 14px;
     line-height: 1.35;
     box-shadow: 0 10px 20px rgba(4, 10, 34, 0.45);
+    --shopTierColor: #e2f0ff;
   }
   .shopChoiceBtn .shopChoiceIcon {
     position: absolute;
-    top: 78px;
+    top: 92px;
     left: 50%;
-    width: 56px;
-    height: 56px;
+    width: 58px;
+    height: 58px;
     transform: translate(-50%, -50%);
     color: var(--accent);
   }
   .shopChoiceBtn .shopChoiceTitle {
     position: absolute;
-    top: 120px;
+    top: 158px;
     left: 50%;
     transform: translate(-50%, -50%);
     display: block;
@@ -449,9 +450,9 @@
     font-size: 14px;
     line-height: 1.2;
     letter-spacing: 0.35px;
-    font-weight: 800;
+    font-weight: 700;
     text-transform: uppercase;
-    color: #eff6ff;
+    color: var(--shopTierColor);
     text-shadow: 0 0 14px rgba(155, 216, 255, 0.8);
   }
   .shopChoiceBtn .shopChoiceIcon::before {
@@ -459,12 +460,24 @@
     position: absolute;
     inset: 0;
     background: currentColor;
-    border-radius: 42% 58% 52% 48% / 56% 42% 58% 44%;
-    opacity: 0.95;
+    border-radius: 50%;
+    opacity: 0.32;
+  }
+  .shopChoiceBtn .shopChoiceIcon svg {
+    position: absolute;
+    inset: 11px;
+    width: calc(100% - 22px);
+    height: calc(100% - 22px);
+    fill: none;
+    stroke: #f3f8ff;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 6px rgba(210, 236, 255, 0.5));
   }
   .shopChoiceBtn .shopChoiceText {
     position: absolute;
-    top: 176px;
+    top: 208px;
     left: 50%;
     transform: translate(-50%, -50%);
     display: block;
@@ -518,6 +531,10 @@
     border-color: rgba(168, 189, 223, 0.46);
     color: #c8d9f3;
   }
+  .shopChoiceBtn--common .shopChoiceTitle {
+    --shopTierColor: #d4e2f8;
+    text-shadow: 0 0 14px rgba(203, 220, 249, 0.45);
+  }
   .shopChoiceBtn--rare {
     border-color: rgba(96, 173, 255, 0.92);
     background: linear-gradient(180deg, rgba(24, 56, 104, 0.96), rgba(18, 41, 82, 0.96));
@@ -530,6 +547,10 @@
     border-color: rgba(97, 181, 255, 0.55);
     color: #8fd0ff;
   }
+  .shopChoiceBtn--rare .shopChoiceTitle {
+    --shopTierColor: #8fd0ff;
+    text-shadow: 0 0 14px rgba(143, 208, 255, 0.5);
+  }
   .shopChoiceBtn--epic {
     border-color: rgba(198, 132, 255, 0.95);
     background: linear-gradient(180deg, rgba(67, 34, 104, 0.96), rgba(50, 24, 85, 0.96));
@@ -541,6 +562,10 @@
     background: rgba(200, 136, 255, 0.2);
     border-color: rgba(200, 136, 255, 0.54);
     color: #dfbeff;
+  }
+  .shopChoiceBtn--epic .shopChoiceTitle {
+    --shopTierColor: #dfbeff;
+    text-shadow: 0 0 14px rgba(223, 190, 255, 0.55);
   }
   #matchStatus {
     color: var(--text-muted) !important;
@@ -801,6 +826,24 @@ var lastShopRenderKey = "";
 var shopOpenGraceMs = 700;
 var shopGraceUntil = 0;
 var shopGraceTimeoutId = null;
+
+
+function getShopIconSvg(upgradeId){
+  var iconPaths = {
+    "extra-second-per-solve": "<path d='M12 3v4'/><path d='M12 17v4'/><path d='M4.9 4.9l2.8 2.8'/><path d='M16.3 16.3l2.8 2.8'/><path d='M3 12h4'/><path d='M17 12h4'/><path d='M4.9 19.1l2.8-2.8'/><path d='M16.3 7.7l2.8-2.8'/>",
+    "start-revealed-cell": "<rect x='4' y='4' width='16' height='16' rx='2'/><path d='M4 12h16'/><path d='M12 4v16'/><circle cx='8' cy='8' r='1.3'/>",
+    "plus-start-time": "<path d='M12 6v12'/><path d='M6 12h12'/><circle cx='12' cy='12' r='9'/>",
+    "plus-2-next-round-points": "<path d='M12 4v16'/><path d='M4 12h16'/><path d='M6.5 6.5h11v11h-11z'/>",
+    "solve-time-siphon": "<path d='M5 15c2.5-5 11.5-5 14-10'/><path d='M19 9c-2.5 5-11.5 5-14 10'/><circle cx='7' cy='7' r='2'/><circle cx='17' cy='17' r='2'/>",
+    "opp-minus-start-time": "<path d='M7 12h10'/><circle cx='12' cy='12' r='9'/>",
+    "opp-bomb-cell": "<circle cx='11' cy='13' r='6'/><path d='M15 9l3-3'/><path d='M18 6l1.5-1.5'/><path d='M11 16v.01'/>",
+    "opp-fragile-focus": "<path d='M12 20s-6-3.8-6-9a3.5 3.5 0 0 1 6-2.2A3.5 3.5 0 0 1 18 11c0 5.2-6 9-6 9z'/><path d='M8.7 13.1l2.2 2.2 4.4-4.4'/>",
+    "default": "<path d='M12 3l2.7 5.4 6 .9-4.3 4.2 1 6-5.4-2.8-5.4 2.8 1-6L3.3 9.3l6-.9z'/>"
+  };
+  var paths = iconPaths[upgradeId] || iconPaths.default;
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + paths + '</svg>';
+}
+
 var soundStorageKey = "speedogram.soundEnabled";
 var soundEnabled = true;
 var suppressStateCatchupSounds = false;
@@ -964,6 +1007,7 @@ function renderShopChoices(){
       tierLabel.textContent = option.tierLabel || (option.tier ? option.tier.toUpperCase() : "UPGRADE");
       var iconPlaceholder = document.createElement("span");
       iconPlaceholder.className = "shopChoiceIcon";
+      iconPlaceholder.innerHTML = getShopIconSvg(option.id);
       var titleLabel = document.createElement("span");
       titleLabel.className = "shopChoiceTitle";
       var label = document.createElement("span");
