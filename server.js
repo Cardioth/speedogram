@@ -105,7 +105,7 @@ async function loadLeaderboardFromRedis() {
     }
     leaderboard.set(id, {
       id,
-      name: parsed.name || "Anon",
+      name: sanitizePlayerName(parsed.name),
       bestPoints: Math.max(0, Math.floor(scoreMap.get(id) || 0)),
       updatedAt: Number(parsed.updatedAt) || Date.now()
     });
@@ -171,15 +171,26 @@ function makeAnonTag(playerId) {
   return String(hash).padStart(3, "0");
 }
 
+function sanitizePlayerName(rawName, fallback = "Anon") {
+  const compacted = String(rawName || "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 24);
+
+  return compacted || fallback;
+}
+
 function buildDisplayName(baseName, playerId, hasChosenName) {
   if (hasChosenName && typeof baseName === "string" && baseName.trim()) {
-    return baseName.trim().slice(0, 24);
+    return sanitizePlayerName(baseName);
   }
   return `Anon#${makeAnonTag(playerId)}`;
 }
 
 function buildPlayerName(baseName, playerId) {
-  const safeBaseName = String(baseName || "Anon").trim().slice(0, 24) || "Anon";
+  const safeBaseName = sanitizePlayerName(baseName);
   return `${safeBaseName}#${makePlayerTag(playerId)}`;
 }
 
@@ -575,14 +586,15 @@ function emitPlayers() {
 
 function updateLeaderboardEntry(playerId, displayName, score) {
   if (typeof playerId !== "string" || !playerId.trim()) return;
-  if (typeof displayName !== "string" || !displayName.trim()) return;
+  const safeDisplayName = sanitizePlayerName(displayName, "");
+  if (!safeDisplayName) return;
   const safePoints = Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
   if (safePoints <= 0) return;
   const existing = leaderboard.get(playerId);
   if (!existing || safePoints > existing.bestPoints) {
     const entry = {
       id: playerId,
-      name: displayName,
+      name: safeDisplayName,
       bestPoints: safePoints,
       updatedAt: Date.now()
     };
@@ -953,7 +965,7 @@ io.on("connection", (socket) => {
     if (!player) return;
 
     if (typeof incoming?.name === "string" && incoming.name.trim()) {
-      player.baseName = incoming.name.trim().slice(0, 24);
+      player.baseName = sanitizePlayerName(incoming.name, "");
       player.hasChosenName = true;
     }
     player.name = buildPlayerName(player.baseName, player.leaderboardId);
