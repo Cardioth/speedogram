@@ -962,7 +962,7 @@ io.on("connection", (socket) => {
   if (activeSocketId && activeSocketId !== socket.id) {
     const activeSocket = io.sockets.sockets.get(activeSocketId);
     if (activeSocket?.connected) {
-      activeSocket.emit("session:replaced", { message: "Another game window took over this account." });
+      activeSocket.emit("session:replaced", { message: "This tab was disconnected because another game window was opened with the same account." });
       activeSocket.disconnect(true);
     }
   }

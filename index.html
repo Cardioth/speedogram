@@ -575,6 +575,18 @@
     color: var(--text-muted) !important;
     letter-spacing: 0.2px;
   }
+  #sessionWarning {
+    width: min(900px, calc(100vw - 42px));
+    margin: 10px auto 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 140, 140, 0.55);
+    background: rgba(112, 18, 18, 0.45);
+    color: #ffd7d7;
+    font-size: 13px;
+    line-height: 1.45;
+    box-sizing: border-box;
+  }
   @media (max-width: 960px) {
     .infoCard {
       width: 100%;
@@ -594,6 +606,7 @@
     <button id="soundToggleButton" type="button" aria-pressed="false" aria-label="Mute sound">🔊</button>
   </div>
   <div id="matchStatus" class="matchmakingUI" style="text-align:center;color:#0088FF;font-size:13px;">Enter your name and click Start.</div>
+  <div id="sessionWarning" class="hidden" role="status" aria-live="polite"></div>
     <div id="arena">
     <canvas id="speedogram" width="900" height="440">Hello</canvas>
     <div id="shopPanel" class="hidden">
@@ -739,6 +752,7 @@ var startButton = document.getElementById("startButton");
 var soundToggleButton = document.getElementById("soundToggleButton");
 var playerNameInput = document.getElementById("playerName");
 var matchStatusEl = document.getElementById("matchStatus");
+var sessionWarningEl = document.getElementById("sessionWarning");
 var opponentState = null;
 var appVersionEl = document.getElementById("appVersion");
 var opponentGridOffSetX = 560;
@@ -1081,6 +1095,19 @@ function setMatchStatus(text){
   }
 }
 
+function setSessionWarning(text){
+  if(!sessionWarningEl){
+    return;
+  }
+  if(text){
+    sessionWarningEl.textContent = text;
+    sessionWarningEl.classList.remove("hidden");
+  } else {
+    sessionWarningEl.textContent = "";
+    sessionWarningEl.classList.add("hidden");
+  }
+}
+
 
 function setMatchmakingVisible(visible){
   var elements = document.querySelectorAll(".matchmakingUI");
@@ -1313,7 +1340,24 @@ function initMultiplayer(){
   });
 
   socket.on("session:replaced", function(payload){
-    setStatus((payload && payload.message) || "Another window connected with this account.", true);
+    var warningText = (payload && payload.message) || "This tab was disconnected because another game window is already using this account.";
+    setSessionWarning(warningText + " Close the other game window and refresh this tab to reconnect.");
+    setMatchStatus("Session paused: another game window is active.");
+    startButton.disabled = true;
+    startButton.textContent = "Disconnected";
+    setMatchmakingVisible(true);
+  });
+
+  socket.on("disconnect", function(reason){
+    if(reason === "io server disconnect"){
+      if(!sessionWarningEl || sessionWarningEl.classList.contains("hidden")){
+        setSessionWarning("This tab was disconnected by the server. If you opened another game window, close it and refresh this tab to reconnect.");
+      }
+      setMatchStatus("Disconnected from server.");
+      startButton.disabled = true;
+      startButton.textContent = "Disconnected";
+      setMatchmakingVisible(true);
+    }
   });
 }
 
@@ -1956,6 +2000,7 @@ function requestMatch(){
     setMatchStatus("No server connection.");
     return;
   }
+  setSessionWarning("");
   pendingPredictions = [];
   gameMode = "waiting";
   setMatchStatus("Waiting for an opponent...");
