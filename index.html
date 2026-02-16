@@ -1629,8 +1629,8 @@ function renderActiveBuffPanels(){
   var opponentGridSize = (opponentState && opponentState.gridSize) ? opponentState.gridSize : gridSize;
   var opponentOverallGridSize = opponentGridSize * cellSize;
   var opponentBoardCenterX = getOuterBoardCenterX(opponentGridOffSetX, opponentOverallGridSize);
-  var myY = gridOffSetY + overallGridSize + 58;
-  var opponentY = gridOffSetY + opponentOverallGridSize + 58;
+  var myY = gridOffSetY + overallGridSize + 66;
+  var opponentY = gridOffSetY + opponentOverallGridSize + 66;
 
   renderBuffBadges(myBoardCenterX, myY, buildActiveBuffBadges(myBuffState));
   renderBuffBadges(opponentBoardCenterX, opponentY, buildActiveBuffBadges(opponentState));
